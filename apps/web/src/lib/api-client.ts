@@ -1,11 +1,17 @@
 import type {
+  Corpus,
+  CorpusCreate,
+  CorpusPreview,
+  CorpusStats,
+  CorpusUpdate,
   DailyUploadCount,
   FileMetadata,
   FileMetadataDetail,
   FileUploadResponse,
   PresignUploadResponse,
+  ShardStat,
   UploadStats,
-} from "@vibe-coding-starter-kit/shared";
+} from "@img2dataset-webdataset-object-storage/shared";
 
 // Single-origin deploys (Vercel `services`: one project serving web + API) put
 // the API under /api on the same origin, so no NEXT_PUBLIC_API_URL is needed —
@@ -17,7 +23,7 @@ export const API_BASE =
   (process.env.NODE_ENV === "production" ? "/api" : "http://localhost:8000");
 
 type ApiClientRoute = {
-  method: "delete" | "get" | "post";
+  method: "delete" | "get" | "patch" | "post";
   path: string;
 };
 
@@ -41,6 +47,16 @@ export const API_CLIENT_ROUTES = {
   // payload ceiling no longer caps upload size.
   uploadPresign: { method: "post", path: "/upload/presign" },
   uploadVerify: { method: "post", path: "/upload/verify" },
+  // Corpora (primary entity: an img2dataset ingest job).
+  corpora: { method: "get", path: "/corpora" },
+  corpusStats: { method: "get", path: "/corpora/stats" },
+  createCorpus: { method: "post", path: "/corpora" },
+  corpus: { method: "get", path: "/corpora/{corpus_id}" },
+  updateCorpus: { method: "patch", path: "/corpora/{corpus_id}" },
+  deleteCorpus: { method: "delete", path: "/corpora/{corpus_id}" },
+  reingestCorpus: { method: "post", path: "/corpora/{corpus_id}/reingest" },
+  corpusShards: { method: "get", path: "/corpora/{corpus_id}/shards" },
+  corpusPreview: { method: "get", path: "/corpora/{corpus_id}/preview" },
 } as const satisfies Record<string, ApiClientRoute>;
 
 /** Typed API error with HTTP status code for caller-side branching. */
@@ -324,4 +340,65 @@ function putFileToStorage(
     }
     xhr.send(file);
   });
+}
+
+// --- Corpora (primary entity) ----------------------------------------------
+
+const JSON_HEADERS = { "Content-Type": "application/json" } as const;
+
+function corpusPath(template: string, id: string): string {
+  return template.replace("{corpus_id}", encodeURIComponent(id));
+}
+
+export async function getCorpora() {
+  return apiFetch<Corpus[]>(API_CLIENT_ROUTES.corpora.path);
+}
+
+export async function getCorpusStats() {
+  return apiFetch<CorpusStats>(API_CLIENT_ROUTES.corpusStats.path);
+}
+
+export async function getCorpus(id: string) {
+  return apiFetch<Corpus>(corpusPath(API_CLIENT_ROUTES.corpus.path, id));
+}
+
+export async function createCorpus(body: CorpusCreate) {
+  return apiFetch<Corpus>(API_CLIENT_ROUTES.createCorpus.path, {
+    method: "POST",
+    headers: JSON_HEADERS,
+    body: JSON.stringify(body),
+  });
+}
+
+export async function updateCorpus(id: string, body: CorpusUpdate) {
+  return apiFetch<Corpus>(corpusPath(API_CLIENT_ROUTES.updateCorpus.path, id), {
+    method: "PATCH",
+    headers: JSON_HEADERS,
+    body: JSON.stringify(body),
+  });
+}
+
+export async function deleteCorpus(id: string) {
+  return apiFetch<{ deleted: boolean; id: string }>(
+    corpusPath(API_CLIENT_ROUTES.deleteCorpus.path, id),
+    { method: "DELETE" }
+  );
+}
+
+export async function reingestCorpus(id: string) {
+  return apiFetch<Corpus>(corpusPath(API_CLIENT_ROUTES.reingestCorpus.path, id), {
+    method: "POST",
+  });
+}
+
+export async function getCorpusShards(id: string) {
+  return apiFetch<ShardStat[]>(
+    corpusPath(API_CLIENT_ROUTES.corpusShards.path, id)
+  );
+}
+
+export async function getCorpusPreview(id: string) {
+  return apiFetch<CorpusPreview>(
+    corpusPath(API_CLIENT_ROUTES.corpusPreview.path, id)
+  );
 }

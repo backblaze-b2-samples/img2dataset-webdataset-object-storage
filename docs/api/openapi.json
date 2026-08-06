@@ -1,6 +1,382 @@
 {
   "components": {
     "schemas": {
+      "Corpus": {
+        "description": "Full Corpus record as persisted in B2 and returned to the frontend.",
+        "properties": {
+          "bucket_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bucket Key"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "description": {
+            "default": "",
+            "maxLength": 160,
+            "title": "Description",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "image_size": {
+            "default": 256,
+            "enum": [
+              256,
+              384,
+              512
+            ],
+            "title": "Image Size",
+            "type": "integer"
+          },
+          "metrics": {
+            "$ref": "#/components/schemas/CorpusMetrics"
+          },
+          "name": {
+            "maxLength": 50,
+            "minLength": 2,
+            "title": "Name",
+            "type": "string"
+          },
+          "output_format": {
+            "default": "webdataset",
+            "enum": [
+              "webdataset",
+              "parquet",
+              "files"
+            ],
+            "title": "Output Format",
+            "type": "string"
+          },
+          "prefix": {
+            "title": "Prefix",
+            "type": "string"
+          },
+          "resize_mode": {
+            "default": "border",
+            "enum": [
+              "border",
+              "keep_ratio",
+              "center_crop",
+              "no"
+            ],
+            "title": "Resize Mode",
+            "type": "string"
+          },
+          "shards": {
+            "items": {
+              "$ref": "#/components/schemas/ShardStat"
+            },
+            "title": "Shards",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "running",
+              "complete",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "url_list_source": {
+            "default": "seed",
+            "enum": [
+              "seed",
+              "uploaded"
+            ],
+            "title": "Url List Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "id",
+          "status",
+          "prefix",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "Corpus",
+        "type": "object"
+      },
+      "CorpusCreate": {
+        "description": "POST /corpora body.",
+        "properties": {
+          "bucket_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bucket Key"
+          },
+          "description": {
+            "default": "",
+            "maxLength": 160,
+            "title": "Description",
+            "type": "string"
+          },
+          "image_size": {
+            "default": 256,
+            "enum": [
+              256,
+              384,
+              512
+            ],
+            "title": "Image Size",
+            "type": "integer"
+          },
+          "name": {
+            "maxLength": 50,
+            "minLength": 2,
+            "title": "Name",
+            "type": "string"
+          },
+          "output_format": {
+            "default": "webdataset",
+            "enum": [
+              "webdataset",
+              "parquet",
+              "files"
+            ],
+            "title": "Output Format",
+            "type": "string"
+          },
+          "resize_mode": {
+            "default": "border",
+            "enum": [
+              "border",
+              "keep_ratio",
+              "center_crop",
+              "no"
+            ],
+            "title": "Resize Mode",
+            "type": "string"
+          },
+          "url_list_source": {
+            "default": "seed",
+            "enum": [
+              "seed",
+              "uploaded"
+            ],
+            "title": "Url List Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "CorpusCreate",
+        "type": "object"
+      },
+      "CorpusMetrics": {
+        "description": "Aggregate yield across a corpus \u2014 drives the detail page and dashboard.",
+        "properties": {
+          "duration_seconds": {
+            "default": 0.0,
+            "title": "Duration Seconds",
+            "type": "number"
+          },
+          "failed": {
+            "default": 0,
+            "title": "Failed",
+            "type": "integer"
+          },
+          "image_count": {
+            "default": 0,
+            "title": "Image Count",
+            "type": "integer"
+          },
+          "shard_count": {
+            "default": 0,
+            "title": "Shard Count",
+            "type": "integer"
+          },
+          "successes": {
+            "default": 0,
+            "title": "Successes",
+            "type": "integer"
+          },
+          "total_bytes": {
+            "default": 0,
+            "title": "Total Bytes",
+            "type": "integer"
+          },
+          "total_bytes_human": {
+            "default": "0 B",
+            "title": "Total Bytes Human",
+            "type": "string"
+          },
+          "yield_pct": {
+            "default": 0.0,
+            "title": "Yield Pct",
+            "type": "number"
+          }
+        },
+        "title": "CorpusMetrics",
+        "type": "object"
+      },
+      "CorpusPreview": {
+        "description": "Stream-back preview result for one corpus.",
+        "properties": {
+          "corpus_id": {
+            "title": "Corpus Id",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "samples": {
+            "items": {
+              "$ref": "#/components/schemas/PreviewSample"
+            },
+            "title": "Samples",
+            "type": "array"
+          },
+          "shard_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shard Key"
+          }
+        },
+        "required": [
+          "corpus_id",
+          "shard_key"
+        ],
+        "title": "CorpusPreview",
+        "type": "object"
+      },
+      "CorpusStats": {
+        "description": "Aggregate corpus-ingest metrics for the dashboard.",
+        "properties": {
+          "aggregate_yield_pct": {
+            "title": "Aggregate Yield Pct",
+            "type": "number"
+          },
+          "complete": {
+            "title": "Complete",
+            "type": "integer"
+          },
+          "failed": {
+            "title": "Failed",
+            "type": "integer"
+          },
+          "images_ingested": {
+            "title": "Images Ingested",
+            "type": "integer"
+          },
+          "running": {
+            "title": "Running",
+            "type": "integer"
+          },
+          "shards_written": {
+            "title": "Shards Written",
+            "type": "integer"
+          },
+          "total_bytes": {
+            "title": "Total Bytes",
+            "type": "integer"
+          },
+          "total_bytes_human": {
+            "title": "Total Bytes Human",
+            "type": "string"
+          },
+          "total_corpora": {
+            "title": "Total Corpora",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total_corpora",
+          "running",
+          "complete",
+          "failed",
+          "images_ingested",
+          "shards_written",
+          "aggregate_yield_pct",
+          "total_bytes",
+          "total_bytes_human"
+        ],
+        "title": "CorpusStats",
+        "type": "object"
+      },
+      "CorpusUpdate": {
+        "description": "PATCH /corpora/{id} body \u2014 only name/description are mutable.\n\nIngest params are create-time immutable (they determine the shard layout on\nB2), so they are intentionally absent here and shown read-only in the UI.",
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 160,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 50,
+                "minLength": 2,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "title": "CorpusUpdate",
+        "type": "object"
+      },
       "DailyUploadCount": {
         "properties": {
           "date": {
@@ -373,6 +749,95 @@
         "title": "PresignUploadResponse",
         "type": "object"
       },
+      "PreviewSample": {
+        "description": "One decoded (image, caption) pair streamed back through WebDataset.",
+        "properties": {
+          "caption": {
+            "title": "Caption",
+            "type": "string"
+          },
+          "height": {
+            "title": "Height",
+            "type": "integer"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "thumbnail": {
+            "title": "Thumbnail",
+            "type": "string"
+          },
+          "width": {
+            "title": "Width",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "key",
+          "caption",
+          "thumbnail",
+          "width",
+          "height"
+        ],
+        "title": "PreviewSample",
+        "type": "object"
+      },
+      "ShardStat": {
+        "description": "Per-shard yield, read back from a ``_stats.json`` written by img2dataset.",
+        "properties": {
+          "bytes": {
+            "default": 0,
+            "title": "Bytes",
+            "type": "integer"
+          },
+          "count": {
+            "default": 0,
+            "title": "Count",
+            "type": "integer"
+          },
+          "failed_to_download": {
+            "default": 0,
+            "title": "Failed To Download",
+            "type": "integer"
+          },
+          "failed_to_resize": {
+            "default": 0,
+            "title": "Failed To Resize",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "size_human": {
+            "default": "0 B",
+            "title": "Size Human",
+            "type": "string"
+          },
+          "successes": {
+            "default": 0,
+            "title": "Successes",
+            "type": "integer"
+          },
+          "tar_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tar Key"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "ShardStat",
+        "type": "object"
+      },
       "UploadStats": {
         "properties": {
           "total_downloads": {
@@ -463,12 +928,370 @@
     }
   },
   "info": {
-    "description": "Local API for the Vibe Coding Starter Kit template, providing file upload and management backed by Backblaze B2. This contract documents the template's local API, not a hosted public endpoint.",
-    "title": "Vibe Coding Starter Kit API",
+    "description": "Local API for img2dataset \u2192 WebDataset on B2: bulk-download image-text datasets into Backblaze B2 as reproducible WebDataset tar shards with img2dataset, validate yield, and stream shards back with WebDataset. This contract documents the local API, not a hosted public endpoint.",
+    "title": "img2dataset \u2192 WebDataset on B2 API",
     "version": "0.1.0"
   },
   "openapi": "3.1.0",
   "paths": {
+    "/corpora": {
+      "get": {
+        "operationId": "list_corpora_endpoint_corpora_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Corpus"
+                  },
+                  "title": "Response List Corpora Endpoint Corpora Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Corpora Endpoint",
+        "tags": [
+          "corpora"
+        ]
+      },
+      "post": {
+        "operationId": "create_corpus_endpoint_corpora_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CorpusCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Corpus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Corpus Endpoint",
+        "tags": [
+          "corpora"
+        ]
+      }
+    },
+    "/corpora/stats": {
+      "get": {
+        "operationId": "corpus_stats_endpoint_corpora_stats_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpusStats"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Corpus Stats Endpoint",
+        "tags": [
+          "corpora"
+        ]
+      }
+    },
+    "/corpora/{corpus_id}": {
+      "delete": {
+        "operationId": "delete_corpus_endpoint_corpora__corpus_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "corpus_id",
+            "required": true,
+            "schema": {
+              "title": "Corpus Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "title": "Response Delete Corpus Endpoint Corpora  Corpus Id  Delete",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Corpus Endpoint",
+        "tags": [
+          "corpora"
+        ]
+      },
+      "get": {
+        "operationId": "get_corpus_endpoint_corpora__corpus_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "corpus_id",
+            "required": true,
+            "schema": {
+              "title": "Corpus Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Corpus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Corpus Endpoint",
+        "tags": [
+          "corpora"
+        ]
+      },
+      "patch": {
+        "operationId": "update_corpus_endpoint_corpora__corpus_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "corpus_id",
+            "required": true,
+            "schema": {
+              "title": "Corpus Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CorpusUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Corpus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Corpus Endpoint",
+        "tags": [
+          "corpora"
+        ]
+      }
+    },
+    "/corpora/{corpus_id}/preview": {
+      "get": {
+        "operationId": "corpus_preview_endpoint_corpora__corpus_id__preview_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "corpus_id",
+            "required": true,
+            "schema": {
+              "title": "Corpus Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpusPreview"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Corpus Preview Endpoint",
+        "tags": [
+          "corpora"
+        ]
+      }
+    },
+    "/corpora/{corpus_id}/reingest": {
+      "post": {
+        "operationId": "reingest_corpus_endpoint_corpora__corpus_id__reingest_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "corpus_id",
+            "required": true,
+            "schema": {
+              "title": "Corpus Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Corpus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reingest Corpus Endpoint",
+        "tags": [
+          "corpora"
+        ]
+      }
+    },
+    "/corpora/{corpus_id}/shards": {
+      "get": {
+        "operationId": "corpus_shards_endpoint_corpora__corpus_id__shards_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "corpus_id",
+            "required": true,
+            "schema": {
+              "title": "Corpus Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ShardStat"
+                  },
+                  "title": "Response Corpus Shards Endpoint Corpora  Corpus Id  Shards Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Corpus Shards Endpoint",
+        "tags": [
+          "corpora"
+        ]
+      }
+    },
     "/files": {
       "get": {
         "operationId": "list_files_endpoint_files_get",

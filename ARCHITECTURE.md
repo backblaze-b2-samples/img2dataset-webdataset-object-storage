@@ -4,14 +4,14 @@
 ## Components
 
 - **apps/web/** — Next.js 16 frontend (App Router, Tailwind v4, shadcn/ui)
-  - Dashboard with stats, upload chart, recent uploads
-  - File upload with drag-and-drop, progress tracking
-  - File browser with preview, download, delete
+  - Corpora explorer (`/corpora`) — the primary domain: create/read/edit/delete/re-run corpus ingest jobs
+  - Dashboard adapted to corpus-ingest metrics (corpora, images ingested, yield, bytes)
+  - Full-bucket File browser + direct-to-B2 Upload (kept starter surface)
   - Dark mode via `next-themes`
 - **services/api/** — FastAPI backend (layered architecture)
-  - REST API for file upload, listing, deletion
-  - B2 S3 integration via boto3
-  - File metadata extraction (images, PDFs)
+  - Corpus domain: img2dataset ingest to B2, yield validation, WebDataset stream-back preview
+  - REST API for corpora, file upload, listing, deletion
+  - B2 S3 integration via boto3; img2dataset streaming write via s3fs/fsspec
   - Health check endpoint with B2 connectivity verification
   - Structured JSON logging with request tracing
   - Prometheus-format metrics endpoint
@@ -57,9 +57,33 @@ services/api/
   tests/                   pytest tests (structural + integration)
 ```
 
+## Corpus Domain
+
+The primary entity is a **Corpus** — an img2dataset ingest job. It has no
+database: its system of record is a `manifest.json` in B2 at
+`img2dataset/<corpus-id>/manifest.json`, alongside the WebDataset `.tar` shards,
+metadata parquet, and per-shard `_stats.json` the ingest writes. A restart
+re-derives every corpus by listing the `img2dataset/` prefix.
+
+Modules (all within the standard layering):
+
+- `types/corpus.py` — `Corpus`, `CorpusCreate/Update`, `ShardStat`, `CorpusMetrics`, `CorpusPreview`, `CorpusStats`; finite options (`OutputFormat`, `ResizeMode`, `ImageSize`, `UrlListSource`) as `Literal`s validated at the boundary
+- `repo/corpus_store.py` — reads/writes the manifest and enumerates shards/stats; prefix-scoped `delete_under` refuses any non-`/`-terminated prefix
+- `repo/img2dataset_ingest.py` — the ONLY place img2dataset/s3fs/fsspec are imported; configures the B2 fsspec endpoint (from `B2_REGION`) and calls `img2dataset.download(output_folder="s3://<bucket>/img2dataset/<id>", …)`
+- `repo/webdataset_preview.py` — the ONLY place `webdataset` is imported; decodes a shard's first samples via `wds.WebDataset(...).decode("pil")`
+- `service/corpus.py` — lifecycle (create/read/edit/delete/re-run) on a background daemon thread per corpus
+- `service/yield_reader.py` — reads shard stats back from B2 and builds the stream-back preview (kept separate so both stay under 300 lines)
+- `runtime/corpus.py` — the `/corpora` router
+
+The **img2dataset user-agent exception**: img2dataset's internal s3fs/aiobotocore
+client exposes no UA hook, so it does not carry the `b2ai-…` custom user agent.
+That client is confined to `repo/img2dataset_ingest.py`; every S3 client the app
+itself constructs (`repo/b2_client.get_s3_client`) always carries the custom UA.
+See [README](README.md#the-img2dataset-user-agent-exception).
+
 ## Boundary Invariants
 
-- **No external SDK leakage**: `boto3` is only imported in `app/repo/`. All other layers interact with B2 through the repo interface.
+- **No external SDK leakage**: `boto3` is only imported in `app/repo/`. img2dataset/s3fs/fsspec are confined to `app/repo/img2dataset_ingest.py` and `webdataset` to `app/repo/webdataset_preview.py`. All other layers interact with B2 through the repo interface.
 - **No raw dicts at boundaries**: All data crossing layer boundaries uses typed Pydantic models.
 - **No cross-layer mutable state**: Configuration is read-only after init, and no mutable state is shared *between* layers. Intra-layer caches/counters (the listing cache in `repo/list_cache.py`, the B2 connectivity cache in `repo/b2_client.py`, the download counter in `repo/counter.py`, the rate-limit and metrics state in `runtime/`) are module-local and guarded by a `threading.Lock`. The listing cache also owns the only background thread in the app: a stale entry is served immediately while that thread re-scans (stale-while-revalidate), and `main.lifespan` warms it once at startup so no user pays for the cold full-bucket scan.
 - **Validated inputs**: All HTTP inputs validated by FastAPI/Pydantic. File keys reject empty and path-traversal patterns; optional prefix confinement via `ALLOWED_KEY_PREFIX` (off by default).
@@ -91,6 +115,7 @@ External provisioning and deployment remain explicit user-approved actions.
 
 - **Backblaze B2** — object storage (S3-compatible API)
   - All uploaded files stored in a single bucket
+  - Corpus system of record: `manifest.json` per corpus under `img2dataset/<id>/`, plus its WebDataset `.tar` shards, metadata parquet, and `_stats.json`
   - File listing and metadata via S3 `list_objects_v2` / `head_object`
   - No application database — B2 is the sole data store
 
@@ -108,7 +133,10 @@ See [docs/SECURITY.md](docs/SECURITY.md) for full security documentation.
 
 ## Data Flows
 
-- **Upload**: Browser -> `POST /upload/presign` (API validates the declared file + signs a PUT) -> Browser PUTs bytes **directly to B2** -> `POST /upload/verify` (API HEADs + Range-sniffs the stored object) -> response
+- **Corpus ingest**: Browser -> `POST /corpora` (write `running` manifest) -> background thread: resolve URL list -> `img2dataset.download(... s3://<bucket>/img2dataset/<id>)` streams shards to B2 via s3fs -> read shard `_stats.json` back from B2 -> update manifest to `complete|failed`
+- **Yield/preview**: Browser -> `GET /corpora/{id}` (manifest + metrics), `GET /corpora/{id}/shards` (re-derived stats), `GET /corpora/{id}/preview` (GET first `.tar` -> `wds.WebDataset` decode)
+- **Corpus delete**: Browser -> `DELETE /corpora/{id}` -> service confirms existence -> prefix-scoped batch delete of `img2dataset/<id>/` only
+- **Upload**: Browser -> `POST /upload/presign` (API validates + signs a PUT) -> Browser PUTs bytes **directly to B2** -> `POST /upload/verify` (API HEADs + Range-sniffs the stored object) -> response
 - **List**: Browser -> `GET /files` -> service calls repo -> returns file list
 - **Download**: Browser -> `GET /files/{key}/download` -> service validates key -> repo generates presigned URL -> browser downloads
 - **Delete**: Browser -> `DELETE /files/{key}` -> service validates key -> repo deletes from B2
@@ -134,6 +162,10 @@ silently drift from FastAPI. `GET /metrics` is intentionally server-only.
 
 ## Canonical Files
 
+- Corpus router: `services/api/app/runtime/corpus.py`
+- Corpus lifecycle: `services/api/app/service/corpus.py`
+- img2dataset ingest adapter: `services/api/app/repo/img2dataset_ingest.py`
+- WebDataset decode: `services/api/app/repo/webdataset_preview.py`
 - Layered API handler: `services/api/app/runtime/upload.py`
 - Service orchestration: `services/api/app/service/upload.py`
 - B2 data access (repo layer): `services/api/app/repo/b2_client.py`
@@ -147,6 +179,11 @@ silently drift from FastAPI. `GET /metrics` is intentionally server-only.
 
 ## Core Features
 
+- [Corpus Ingest](docs/features/corpus-ingest.md)
+- [WebDataset Corpus Builder](docs/features/webdataset-corpus.md)
+- [Yield Validation](docs/features/yield-validation.md)
+- [Stream-Back Preview](docs/features/stream-back-preview.md)
+- [Corpora Explorer](docs/features/corpora-explorer.md)
 - [File Upload](docs/features/file-upload.md)
 - [File Browser](docs/features/file-browser.md)
 - [Dashboard](docs/features/dashboard.md)

@@ -2,11 +2,25 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    b2_endpoint: str = "https://s3.us-west-004.backblazeb2.com"
-    b2_key_id: str = ""
+    # Backblaze B2 (S3-compatible). Env var names follow the standardized B2_*
+    # contract: B2_APPLICATION_KEY_ID / B2_APPLICATION_KEY / B2_BUCKET_NAME /
+    # B2_REGION / B2_PUBLIC_URL_BASE.
+    b2_application_key_id: str = ""
     b2_application_key: str = ""
     b2_bucket_name: str = ""
-    b2_public_url: str = ""
+    # Region selects the S3 endpoint. B2's S3 endpoint is
+    # https://s3.<region>.backblazeb2.com — derived via the endpoint_url
+    # property below, so no region string is hardcoded here. Required at runtime;
+    # set B2_REGION in .env (see .env.example, e.g. us-west-004 / us-east-005).
+    b2_region: str = ""
+    # Advanced override: set B2_ENDPOINT only to target a non-standard or
+    # S3-proxy endpoint. Empty by default so the endpoint is derived from
+    # b2_region.
+    b2_endpoint: str = ""
+    # Optional public base URL for public buckets — builds direct object URLs.
+    # The app runs fine without it (falls back to presigned URLs), so it is
+    # functionally optional.
+    b2_public_url_base: str = ""
 
     api_port: int = 8000
     # Interactive API docs (/docs, /redoc, /openapi.json). On by default for
@@ -69,7 +83,38 @@ class Settings(BaseSettings):
     # normal user action into an API restart that drops in-flight requests.
     download_count_file: str = ".data/download_count.json"
 
+    # --- Corpus / img2dataset ingest ---------------------------------------
+    # All ingest artifacts (tar shards, metadata parquet, per-shard _stats.json,
+    # and the manifest.json system-of-record) live under this single bucket
+    # prefix. The Corpora explorer is scoped to it; delete is scoped to
+    # <prefix>/<corpus-id>/ only — never a bucket-wide wipe.
+    corpus_prefix: str = "img2dataset/"
+    # Images per WebDataset tar shard. Kept small so the ~24-image seed run
+    # fans out into a few shards (demonstrating sharding); production raises it.
+    corpus_samples_per_shard: int = 8
+    # img2dataset process/thread fan-out. Pinned to 1 process for a
+    # macOS-spawn-safe local demo; production scales both up.
+    corpus_processes_count: int = 1
+    corpus_thread_count: int = 32
+    # Per-image download timeout (seconds) handed to img2dataset.
+    corpus_download_timeout: int = 10
+    # Hard ceiling for one ingest run (seconds); an over-running job is marked
+    # failed rather than pinning a worker thread forever.
+    corpus_run_timeout_seconds: float = 900.0
+    # How many (image, caption) pairs the stream-back preview decodes per shard.
+    corpus_preview_samples: int = 8
+
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
+
+    @property
+    def endpoint_url(self) -> str:
+        """S3 endpoint for the configured region.
+
+        Derives ``https://s3.<region>.backblazeb2.com`` from ``b2_region`` so no
+        region string is hardcoded. ``b2_endpoint`` (empty by default) is an
+        advanced override for non-standard endpoints.
+        """
+        return self.b2_endpoint or f"https://s3.{self.b2_region}.backblazeb2.com"
 
     @property
     def cors_origins(self) -> list[str]:

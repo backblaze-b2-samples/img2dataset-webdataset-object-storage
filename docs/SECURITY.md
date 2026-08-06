@@ -1,7 +1,7 @@
 <!-- last_verified: 2026-07-30 -->
 # Security
 
-Security principles and implementation for the vibe-coding-starter-kit.
+Security principles and implementation for the img2dataset-webdataset-object-storage.
 
 ## Trust Boundaries
 

@@ -71,3 +71,104 @@ export interface UploadStats {
   uploads_today: number;
   total_downloads: number;
 }
+
+// --- Corpus (primary entity: an img2dataset ingest job) --------------------
+
+export type OutputFormat = "webdataset" | "parquet" | "files";
+export type ResizeMode = "border" | "keep_ratio" | "center_crop" | "no";
+export type ImageSize = 256 | 384 | 512;
+export type UrlListSource = "seed" | "uploaded";
+export type CorpusStatus = "running" | "complete" | "failed";
+
+export const OUTPUT_FORMATS: OutputFormat[] = ["webdataset", "parquet", "files"];
+export const RESIZE_MODES: ResizeMode[] = [
+  "border",
+  "keep_ratio",
+  "center_crop",
+  "no",
+];
+export const IMAGE_SIZES: ImageSize[] = [256, 384, 512];
+
+export interface ShardStat {
+  name: string;
+  count: number;
+  successes: number;
+  failed_to_download: number;
+  failed_to_resize: number;
+  tar_key: string | null;
+  bytes: number;
+  size_human: string;
+}
+
+export interface CorpusMetrics {
+  image_count: number;
+  successes: number;
+  failed: number;
+  yield_pct: number;
+  shard_count: number;
+  total_bytes: number;
+  total_bytes_human: string;
+  duration_seconds: number;
+}
+
+export interface Corpus {
+  id: string;
+  name: string;
+  description: string;
+  output_format: OutputFormat;
+  resize_mode: ResizeMode;
+  image_size: ImageSize;
+  url_list_source: UrlListSource;
+  bucket_key: string | null;
+  status: CorpusStatus;
+  prefix: string;
+  created_at: string;
+  updated_at: string;
+  error: string | null;
+  metrics: CorpusMetrics;
+  shards: ShardStat[];
+}
+
+/** POST /corpora body. */
+export interface CorpusCreate {
+  name: string;
+  description?: string;
+  output_format: OutputFormat;
+  resize_mode: ResizeMode;
+  image_size: ImageSize;
+  url_list_source: UrlListSource;
+  bucket_key?: string | null;
+}
+
+/** PATCH /corpora/{id} body — only name/description are mutable. */
+export interface CorpusUpdate {
+  name?: string;
+  description?: string;
+}
+
+export interface PreviewSample {
+  key: string;
+  caption: string;
+  thumbnail: string;
+  width: number;
+  height: number;
+}
+
+export interface CorpusPreview {
+  corpus_id: string;
+  shard_key: string | null;
+  samples: PreviewSample[];
+  note: string | null;
+}
+
+export interface CorpusStats {
+  total_corpora: number;
+  running: number;
+  complete: number;
+  failed: number;
+  images_ingested: number;
+  shards_written: number;
+  aggregate_yield_pct: number;
+  total_bytes: number;
+  total_bytes_human: string;
+}

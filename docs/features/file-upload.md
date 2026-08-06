@@ -8,6 +8,11 @@ capped by Vercel's ~4.5 MB Function payload limit — the same flow handles up t
 `max_file_size` (100 MB default) on local, Railway, and Vercel alike, and is a
 direct showcase of B2 as the storage layer.
 
+In this sample, Upload doubles as the way to bring a **custom URL-list file**
+(a TSV/CSV/parquet with `url` and `caption` columns) into the bucket so a corpus
+can reference it by key — pick "Uploaded file" when creating a corpus and select
+the file you uploaded here. The direct-to-B2 upload mechanics are unchanged.
+
 ## Used By
 - UI: `/upload` page, upload form component
 - API: `POST /upload/presign`, `POST /upload/verify`

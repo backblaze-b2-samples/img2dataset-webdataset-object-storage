@@ -1,30 +1,33 @@
 <!-- last_verified: 2026-08-04 -->
-# Vibe Coding Starter Kit
+# img2dataset → WebDataset on B2
 
-Stop wiring boilerplate and start building. This open-source starter kit gives vibe coders and AI coding agents a well-engineered foundation — a full-stack TypeScript + Python template with a pre-built dashboard UI, file upload system, and **[Backblaze B2](https://www.backblaze.com/sign-up/ai-cloud-storage?utm_source=github&utm_medium=referral&utm_campaign=ai_artifacts&utm_content=b2ai-oss-start)** cloud storage already integrated. Save thousands of tokens on setup prompts, skip the "build me a dashboard from scratch" loop, and go straight to building your app's unique features.
+Bulk-download image-text datasets straight into **[Backblaze B2](https://www.backblaze.com/sign-up/ai-cloud-storage?utm_source=github&utm_medium=referral&utm_campaign=ai_artifacts&utm_content=b2ai-img2dataset-webdataset-object-storage)** as reproducible, ready-to-train **WebDataset** tar shards — using the trending OSS tool [`img2dataset`](https://github.com/rom1504/img2dataset), with B2 as the S3-compatible output target and no local staging disk. Point a corpus at a URL-caption list (or the built-in sample list); `img2dataset` fetches, resizes, and packages the images into `.tar` shards + metadata parquet + per-shard `_stats.json`, streaming them directly to B2. The app then validates yield from those stats and proves training-time consumption by streaming a shard back through WebDataset's `IterableDataset` and decoding a few `(image, caption)` pairs.
 
-Explore the [Vibe Coding Starter Kit project page](https://backblazelabs.com/projects/vibe-coding-starter-kit/), the official [Backblaze B2 AI integrations and sample applications](https://www.backblaze.com/cloud-storage/b2-ai-integrations) directory, and the checked-in [local OpenAPI contract](docs/api/openapi.json).
+Explore the [project page](https://backblazelabs.com/projects/img2dataset-webdataset-object-storage/), the official [Backblaze B2 AI integrations and sample applications](https://www.backblaze.com/cloud-storage/b2-ai-integrations?utm_source=github&utm_medium=referral&utm_campaign=ai_artifacts&utm_content=b2ai-img2dataset-webdataset-object-storage) directory, and the checked-in [local OpenAPI contract](docs/api/openapi.json).
 
 **What you get out of the box:**
-- Full-stack dashboard UI (Next.js 16 + React 19 + Tailwind v4 + shadcn/ui)
-- File upload with drag-and-drop, progress tracking, and metadata extraction
-- File browser with preview, download, and delete
-- FastAPI backend with strict layered architecture and structural tests
-- Agent-optimized docs — your AI coding agent can read the repo and start contributing immediately
+- A **Corpus** primary entity (an img2dataset ingest job) with full create / read / edit / delete / re-run lifecycle
+- Streaming ingest that writes WebDataset `.tar` shards straight to B2 via `img2dataset` — no local staging
+- Yield validation read back from each shard's `_stats.json`, and a stream-back preview decoded with the real `webdataset` package
+- A scoped **Corpora** explorer plus the full-bucket File Explorer and direct-to-B2 Upload
+- FastAPI backend with strict layered architecture and structural tests, and agent-optimized docs
+
+This runs on device: CPU + network only. No GPU, no model, no second API key — Backblaze B2 credentials are all you need.
 
 ## What it looks like
 
-**Dashboard** — stats, upload activity, and recent uploads at a glance:
+Screenshots are added by a later step. The Dashboard shows corpus-ingest metrics
+(corpora built, images ingested, aggregate yield, bytes on B2); the Corpus detail
+page shows yield validation, the decoded stream-back preview grid, and the shard
+list.
 
-![Dashboard view showing stat cards, upload activity chart, and recent uploads table](docs/images/b2-starterkit-dashboard1.png)
+![Dashboard — ingest metrics, images-ingested chart, recent corpora](docs/images/dashboard.png)
 
-**File browser** — tree view with preview, download, and delete:
-
-![File browser view showing a tree of files with hover actions](docs/images/b2-starterkit-fileview2.png)
+![Corpus detail — yield validation, decoded sample grid, shard list](docs/images/corpus-detail.png)
 
 ## Quick Start
 
-You need: Node.js >= 20, pnpm >= 9, Python >= 3.11, and a free **[Backblaze B2 account](https://www.backblaze.com/sign-up/ai-cloud-storage?utm_source=github&utm_medium=referral&utm_campaign=ai_artifacts&utm_content=b2ai-oss-start)**.
+You need: Node.js >= 20, pnpm >= 9, Python >= 3.11, and a free **[Backblaze B2 account](https://www.backblaze.com/sign-up/ai-cloud-storage?utm_source=github&utm_medium=referral&utm_campaign=ai_artifacts&utm_content=b2ai-img2dataset-webdataset-object-storage)**.
 
 ### Supported local environments
 
@@ -35,34 +38,18 @@ supported yet because the dev scripts use POSIX shell syntax and
 Cloud or sandboxed coding-agent environments also need permission for dependency
 downloads during `pnpm run setup`. Running the app or Playwright E2E requires
 localhost server binding for the web server on port 3000 and the API on
-8000-8009, plus permission to launch the Playwright Chromium browser. If a
-sandbox denies binding, `pnpm run doctor` and `scripts/pick-port.mjs` report
-`EPERM`/`EACCES` as a permissions issue instead of a busy port. A host without
-IPv6 (many containers) is not treated as a failure — the IPv4 probe decides.
+8000-8009, plus permission to launch the Playwright Chromium browser. A live
+ingest additionally reaches the public internet (the seed list downloads from
+`picsum.photos`) and writes to your B2 bucket. If a sandbox denies binding,
+`pnpm run doctor` and `scripts/pick-port.mjs` report `EPERM`/`EACCES` as a
+permissions issue instead of a busy port.
 
-### Start a new project
-
-**Option 1: GitHub Template (recommended)**
-
-Click the green **"Use this template"** button at the top of this repo, name your project, then:
+### Get the code
 
 ```bash
-git clone https://github.com/yourorg/my-cool-app.git
-cd my-cool-app
+git clone https://github.com/backblaze-b2-samples/img2dataset-webdataset-object-storage.git my-corpus-app
+cd my-corpus-app
 ```
-
-**Option 2: Clone and reinitialize**
-
-```bash
-git clone https://github.com/backblaze-b2-samples/vibe-coding-starter-kit.git my-cool-app
-cd my-cool-app
-rm -rf .git
-git init
-git add .
-git commit -m "Initial commit from vibe-coding-starter-kit"
-```
-
-Either way you get a clean project with no upstream history — ready to push to your own repo and point your agent at it.
 
 ### Setup
 
@@ -75,8 +62,9 @@ pnpm run setup
 This copies `.env.example` to `.env` only when `.env` does not already exist,
 installs workspace dependencies from `pnpm-lock.yaml`, creates
 `services/api/.venv` if missing, and installs the API's committed Python 3.11
-resolution from `services/api/requirements.lock`. It is safe to rerun and never
-overwrites an existing `.env`.
+resolution from `services/api/requirements.lock` (img2dataset, webdataset, s3fs,
+fsspec, pyarrow, boto3 — all CPU/network only, no torch). It is safe to rerun and
+never overwrites an existing `.env`.
 
 > Use the `pnpm run` form: `setup` (like `doctor`) is a built-in pnpm command
 > before pnpm 11, so bare `pnpm setup` would run pnpm's own command instead of
@@ -84,16 +72,18 @@ overwrites an existing `.env`.
 
 **2. Add your B2 credentials**
 
-Open `.env` in your editor and keep it visible. Then head to the [Backblaze B2 dashboard](https://secure.backblaze.com/b2_buckets.htm?utm_source=github&utm_medium=referral&utm_campaign=ai_artifacts&utm_content=b2ai-oss-start) and:
+Open `.env` in your editor and keep it visible. Then head to the [Backblaze B2 dashboard](https://secure.backblaze.com/b2_buckets.htm?utm_source=github&utm_medium=referral&utm_campaign=ai_artifacts&utm_content=b2ai-img2dataset-webdataset-object-storage) and:
 
 1. **Create a bucket.** B2 will show two values — paste each into `.env`:
    - **Bucket Unique Name** → `B2_BUCKET_NAME`
-   - **Endpoint** → `B2_ENDPOINT`
+   - **Endpoint** (e.g. `s3.us-west-004.backblazeb2.com`) → take the region
+     (`us-west-004`) and paste it as `B2_REGION`. The app derives the S3 endpoint
+     `https://s3.<region>.backblazeb2.com` from it — no region string is hardcoded.
 2. **Create an application key** with `Read and Write` permission. B2 will show two values — paste each into `.env`:
-   - **keyID** → `B2_KEY_ID`
+   - **keyID** → `B2_APPLICATION_KEY_ID`
    - **applicationKey** → `B2_APPLICATION_KEY` *(only shown once — paste it now)*
 
-> Want a walkthrough? See the docs for [creating a bucket](https://www.backblaze.com/docs/cloud-storage-create-and-manage-buckets) and [creating app keys](https://www.backblaze.com/docs/cloud-storage-create-and-manage-app-keys).
+> Want a walkthrough? See the docs for [creating a bucket](https://www.backblaze.com/docs/cloud-storage-create-and-manage-buckets?utm_source=github&utm_medium=referral&utm_campaign=ai_artifacts&utm_content=b2ai-img2dataset-webdataset-object-storage) and [creating app keys](https://www.backblaze.com/docs/cloud-storage-create-and-manage-app-keys?utm_source=github&utm_medium=referral&utm_campaign=ai_artifacts&utm_content=b2ai-img2dataset-webdataset-object-storage).
 
 **3. Run it**
 
@@ -101,51 +91,54 @@ Open `.env` in your editor and keep it visible. Then head to the [Backblaze B2 d
 pnpm dev
 ```
 
-That's it. Frontend at `localhost:3000`, API at `localhost:8000`. Upload a file and see it working. Interactive API docs (Swagger UI) are at `localhost:8000/docs`, with ReDoc at `/redoc`.
+That's it. Frontend at `localhost:3000`, API at `localhost:8000`. Open **Corpora**, click **New corpus**, keep the built-in seed list, and press **Create & ingest** — shards stream to `img2dataset/<corpus-id>/` on B2, yield is validated from the stats, and the detail page decodes a shard back. Interactive API docs (Swagger UI) are at `localhost:8000/docs`, with ReDoc at `/redoc`.
 
 `pnpm dev` runs the preflight check first — it catches the common setup gotchas (wrong Node/Python version, missing venv, missing or placeholder `.env`, ports already taken) and tells you exactly how to fix each one. Run it standalone any time with `pnpm run doctor`.
 
 ## When to use
 
-Use this repository as a template or sample implementation when you want to
-clone or fork a working file-management dashboard, connect it to your own B2
-bucket, and then rebrand and extend it for your application. It provides
-production-minded engineering controls—including strict architecture,
-contract checks, tests, linting, and deployment runbooks—so you can begin with
-a dependable scaffold instead of a blank prototype.
+Use this sample when you are building large-scale image-text training corpora
+(LAION / DataComp style) and want Backblaze B2 as the durable, S3-native home for
+your WebDataset shards. It shows the full path — bulk download with `img2dataset`,
+streaming write to B2, honest yield validation, and stream-back consumption with
+`webdataset` — on a working, agent-friendly scaffold you can adapt to your own URL
+lists and output formats.
 
 ## When not to use
 
 Do not choose this repository expecting a complete hosted SaaS product or a
-drop-in production service. It does not provide managed hosting, user accounts,
-authentication, tenant isolation, billing, or on-call operations. Before using
-an adapted application in production, you own its product-specific security,
-operations, capacity, compliance, and support decisions.
+managed data-curation service. It does not provide managed hosting, user accounts,
+authentication, tenant isolation, billing, distributed multi-node download, or
+on-call operations. The local demo pins `processes_count=1` for a
+macOS-spawn-safe run; production scales `processes_count`/`thread_count` up. You
+own the product-specific security, operations, capacity, compliance, and support
+decisions for anything you adapt.
 
-## Building Your App
+## The img2dataset user-agent exception
 
-When you adapt this kit for a new app, keep the shared scaffolding and only swap out what's app-specific:
+Every S3 client this app constructs — `get_s3_client()` in
+`services/api/app/repo/b2_client.py` — carries the custom user agent
+`b2ai-img2dataset-webdataset-object-storage`. There is one exception, recorded here
+deliberately: the bulk streaming write is performed by `img2dataset`'s own internal
+`s3fs`/`aiobotocore` client, which exposes no user-agent hook. We do not fake a UA
+into a third-party tool's client. That client is confined to
+`services/api/app/repo/img2dataset_ingest.py` (the only place img2dataset/s3fs/fsspec
+are used); every read/write the app itself makes still carries the custom UA.
+
+## Building on this sample
 
 - **Keep** the UI kit (`apps/web/src/components/ui/` + design tokens in `globals.css` + `/design`).
-- **Keep** the File Explorer (`/files`) and Upload (`/upload`) pages and their sidebar nav entries — they're the reusable B2-backed surface.
-- **Adapt** the Dashboard (`/`) to your use case — replace the default stats, chart, and recent uploads with metrics that reflect what your app actually does.
-- **Rebrand** by editing a single file: `apps/web/src/lib/app-config.ts` holds the app name and description (`APP_NAME`, `APP_DESCRIPTION`). Changing them there updates the page title, sidebar, and breadcrumb everywhere — no other files to touch.
+- **Keep** the full-bucket File Explorer (`/files`) and Upload (`/upload`) — the reusable B2-backed surface. Upload doubles as the way to bring a custom URL-list file (TSV/CSV/parquet) into the bucket so a corpus can reference it by key.
+- **The Corpora explorer** (`/corpora`) is the sample-specific asset view, scoped to the `img2dataset/` prefix; the Dashboard is adapted to corpus-ingest metrics.
+- **Rebrand** by editing a single file: `apps/web/src/lib/app-config.ts` holds `APP_NAME` and `APP_DESCRIPTION`; the FastAPI `API_TITLE` derives from `APP_NAME`.
 
 Full contract and rationale: [AGENTS.md §2 — Building on This Starter Kit](AGENTS.md#2-building-on-this-starter-kit).
 
 ## Agent-First Architecture
 
-This repo is optimized for coding agents. Use the template, point your agent at it, and start building.
+This repo is optimized for coding agents. The structure follows the principle that **repository knowledge is the system of record** — everything an agent needs to reason about the codebase is versioned, co-located, and discoverable from the repo itself.
 
-The structure follows the principle that **repository knowledge is the system of record**. Anything an agent can't access in-context doesn't exist — so everything it needs to reason about the codebase is versioned, co-located, and discoverable from the repo itself.
-
-### How it works
-
-**[AGENTS.md](AGENTS.md) is the single source of truth for all coding agents.** Its bounded, agent-sized entry point gives agents the repository layout, architectural invariants, commands, conventions, and pointers to deeper docs. Agent-specific files (CLAUDE.md, GEMINI.md, Copilot instructions, etc.) are thin pointers back to AGENTS.md.
-
-**Architecture is enforced mechanically, not by convention.** Layering rules, import boundaries, file size limits, and SDK containment are verified by structural tests and lints that run on every change. When rules are enforceable by code, agents follow them reliably.
-
-**The knowledge base is structured for progressive disclosure:**
+**[AGENTS.md](AGENTS.md) is the single source of truth for all coding agents.** Agent-specific files (CLAUDE.md, GEMINI.md, Copilot instructions) are thin pointers back to it. Architecture is enforced mechanically — layering rules, import boundaries, file size limits, and SDK containment are verified by structural tests and lints on every change.
 
 ```
 AGENTS.md              Single source of truth — layout, invariants, commands, conventions
@@ -159,45 +152,36 @@ docs/
   exec-plans/          Execution plans and tech debt tracker
 ```
 
-### Key design decisions
-
 | Principle | Implementation |
 |-----------|---------------|
 | Give agents a single source of truth | AGENTS.md — bounded layout, invariants, commands, conventions |
 | Enforce invariants mechanically | Structural tests + ruff + ESLint verify boundaries |
-| DRY documentation | Each fact lives in one place; no redundant files to drift |
 | Strict layered architecture | `types -> config -> repo -> service -> runtime`, enforced by tests |
-| Prefer boring, composable libraries | stdlib logging over frameworks, Pydantic over ad-hoc validation |
-| Contain external SDKs | `boto3` only in `repo/` layer — verified by structural test |
+| Contain external SDKs | `boto3` only in `repo/`; img2dataset/s3fs/fsspec only in `repo/img2dataset_ingest.py` |
 | Keep files agent-sized | 300-line limit per file, enforced by test |
 | Docs updated with code | Same-PR requirement prevents documentation rot |
-| Structured observability | JSON logging, `/metrics` endpoint, request tracing |
-
-This approach draws from [OpenAI's experience building with Codex](https://openai.com/index/harness-engineering/): agents work best in environments with strict boundaries, predictable structure, and progressive context disclosure.
 
 ## Core Features
 
-- [File Upload](docs/features/file-upload.md) — drag-and-drop upload with real-time progress
-- [File Browser](docs/features/file-browser.md) — list, preview, download, delete files
-- [Dashboard](docs/features/dashboard.md) — stats cards, upload chart, recent uploads
-- [Metadata Extraction](docs/features/metadata-extraction.md) — image dimensions, EXIF, PDF info, checksums
-- [Design System](docs/design-system.md) — tokens, primitives, AI elements, the blaze generating loader, and inline `ErrorState` / `EmptyState` patterns. Live preview at `/design`.
-- Inline error handling — fetch failures surface *what's wrong* (API offline, 401, 5xx) and offer a Retry, instead of silently rendering empty state.
-- Single-source config — one `.env` at the repo root powers both API and web app, validated at startup so misconfig fails fast with a readable message.
-- Centralized data layer — every fetch goes through TanStack Query hooks in `apps/web/src/lib/queries.ts`; cache invalidation is one call after a mutation.
-- Checked local API contract — [`docs/api/openapi.json`](docs/api/openapi.json) plus `pnpm contract:check` catch FastAPI/client route drift; it describes the template API you run, not a hosted public endpoint.
-- Structural tests — verify layering rules, import boundaries, SDK containment, file size limits
-- Structured JSON logging — every request traced with `request_id` and timing
-- `/health` endpoint — B2 connectivity check
-- `/metrics` endpoint — Prometheus-format counters (request count, latency, uploads)
-- `/docs` + `/redoc` — auto-generated interactive API docs (toggle off in prod with `ENABLE_DOCS=false`)
-- Per-IP rate limiting and magic-byte upload validation — see [SECURITY.md](docs/SECURITY.md)
+- [Corpus Ingest](docs/features/corpus-ingest.md) — stream WebDataset shards to B2 with `img2dataset`, no local staging
+- [WebDataset Corpus Builder](docs/features/webdataset-corpus.md) — configure output format, resize mode, image size, and URL-list source
+- [Yield Validation](docs/features/yield-validation.md) — sum per-shard `_stats.json` into download yield %, success/fail counts, and bytes on B2
+- [Stream-Back Preview](docs/features/stream-back-preview.md) — decode `(image, caption)` pairs from a shard with the real `webdataset` package
+- [Corpora Explorer](docs/features/corpora-explorer.md) — corpus cards + per-corpus shards and decoded sample grid, scoped to `img2dataset/`
+- [File Upload](docs/features/file-upload.md) — direct-to-B2 upload; also the way to bring a custom URL-list file into the bucket
+- [File Browser](docs/features/file-browser.md) — full-bucket list, preview, download, delete
+- [Dashboard](docs/features/dashboard.md) — corpus-ingest stat cards, images-ingested chart, recent corpora
+- [Design System](docs/design-system.md) — tokens, primitives, and inline `ErrorState` / `EmptyState` patterns. Live preview at `/design`.
+- Centralized data layer — every fetch goes through TanStack Query hooks in `apps/web/src/lib/queries.ts`
+- Checked local API contract — [`docs/api/openapi.json`](docs/api/openapi.json) plus `pnpm contract:check` catch FastAPI/client route drift
+- Structural tests, structured JSON logging, `/health` + `/metrics`, `/docs` + `/redoc`, per-IP rate limiting
 
 ## Tech Stack
 
 - TypeScript, Next.js 16, React 19, Tailwind v4, shadcn/ui, Recharts
 - TanStack Query — caching, dedup, retry, stale-while-revalidate for every fetch
-- Python 3.11+, FastAPI, boto3, Pydantic v2, Pillow, PyPDF2
+- Python 3.11+, FastAPI, boto3, Pydantic v2
+- [img2dataset](https://github.com/rom1504/img2dataset) (streaming download → B2 via s3fs/fsspec), [webdataset](https://github.com/webdataset/webdataset) (torch-optional stream-back), pyarrow, Pillow
 - Backblaze B2 (S3-compatible object storage)
 - pnpm workspaces (monorepo)
 
@@ -223,57 +207,38 @@ This approach draws from [OpenAI's experience building with Codex](https://opena
 | `pnpm test:web` | Run frontend unit tests (vitest) |
 | `pnpm test:api` | Run backend tests |
 | `pnpm check:structure` | Verify layering rules |
-| `pnpm test:e2e` | Playwright E2E smoke tests (run `pnpm --filter @vibe-coding-starter-kit/web exec playwright install chromium` once first) |
+| `pnpm test:e2e` | Playwright E2E smoke tests (run `pnpm --filter @img2dataset-webdataset-object-storage/web exec playwright install chromium` once first) |
 
 Run `pnpm run setup` once before local development, and rerun it after pulling
-dependency changes. It installs workspace dependencies from `pnpm-lock.yaml`
-and API dependencies from `services/api/requirements.lock`. If you add a Node
-dependency yourself, run `pnpm install` to refresh `pnpm-lock.yaml`; for an API
-dependency, follow the reviewed refresh workflow in
+dependency changes. If you add a Node dependency yourself, run `pnpm install`; for
+an API dependency, follow the reviewed refresh workflow in
 [docs/dev-workflows.md](docs/dev-workflows.md#python-dependency-updates). Run
-`pnpm verify` before opening a PR; it needs
-`services/api/.venv` from setup. Run `pnpm verify:full` when you can start the
-local app stack and browser tests: `.env` must contain real B2 values, local
-server binding must be permitted, Playwright's Chromium browser must be
-installed, and port 3000 must be free (or already serving this app). Playwright
-waits on `http://localhost:3000`,
-but `next dev` falls back to the next free port when 3000 is taken — so an
-unrelated process on 3000 makes the E2E run time out. The API starts at
-`localhost:8000` or the next free port chosen by `scripts/dev.sh`.
+`pnpm verify` before opening a PR; it needs `services/api/.venv` from setup and
+neither B2 credentials nor a browser — the img2dataset/s3fs/B2 boundary is mocked
+in the test suite, so a live ingest is proven separately when you run the app.
 
-`pnpm verify` needs neither B2 credentials nor a browser. For parallel agents,
-use one Git worktree per verification run as documented in [the verification
-workflow](docs/dev-workflows.md#non-live-verification). That page also covers
-normal timing, slow-run recovery, and installing the optional local pre-commit
-hooks.
+For parallel agents, use one Git worktree per verification run as documented in
+[the verification workflow](docs/dev-workflows.md#non-live-verification).
 
 ## Deploying to Vercel
 
-This starter deploys to Vercel as **one project** using Vercel
+This sample deploys to Vercel as **one project** using Vercel
 [Services](https://vercel.com/docs/services): the Next.js web app and the
 FastAPI API build from the same repo and share a single origin — the web app at
 `/` and the API under `/api`. One click, one project, **no CORS and no wiring
 two URLs together**.
 
-[![Deploy to Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fbackblaze-b2-samples%2Fvibe-coding-starter-kit&project-name=vcsk&env=B2_KEY_ID,B2_APPLICATION_KEY,B2_ENDPOINT,B2_BUCKET_NAME&envDescription=B2%20credentials%20and%20bucket&envLink=https%3A%2F%2Fgithub.com%2Fbackblaze-b2-samples%2Fvibe-coding-starter-kit%2Fblob%2Fmain%2Finfra%2Fvercel%2FREADME.md)
+[![Deploy to Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fbackblaze-b2-samples%2Fimg2dataset-webdataset-object-storage&project-name=img2dataset-webdataset-object-storage&env=B2_APPLICATION_KEY_ID,B2_APPLICATION_KEY,B2_REGION,B2_BUCKET_NAME&envDescription=B2%20credentials%20and%20bucket&envLink=https%3A%2F%2Fgithub.com%2Fbackblaze-b2-samples%2Fimg2dataset-webdataset-object-storage%2Fblob%2Fmain%2Finfra%2Fvercel%2FREADME.md)
 
-Set the B2 credentials and bucket. Uploads go **directly from the browser to
-B2** (presigned PUT), so Vercel's 4.5 MB Function payload limit doesn't apply
-and the starter's 100 MB default stays — one caveat: the bucket must allow your
-deploy origin in its CORS (see the
-[Vercel delivery contract](infra/vercel/README.md)). The web app reaches the API
-at the same-origin `/api` automatically, so **no `NEXT_PUBLIC_API_URL` is
-needed**; the repo-root `vercel.json` declares the `web` and `api` services and
-routes `/api/*` to FastAPI (which serves its native `/health`, `/files`, … paths
-— the Vercel-only `services/api/index.py` strips the `/api` prefix).
-
-The button clones the repo into your account as a quick preview. For the full
-variable classification, the two-separate-Projects alternative, security
-controls, preview/production process, `/health` verification, and rollback,
-follow the [Vercel delivery contract](infra/vercel/README.md). The API is
-unauthenticated and bucket-wide, so use a dedicated B2 bucket/prefix and key for
-any preview. Deploying is a human-approved action — nothing here performs one
-for you.
+Set the B2 credentials and bucket. Note the ingest itself is CPU- and
+network-heavy and long-running — a serverless Function is a poor fit for a large
+corpus; run ingests on a persistent worker and use a Vercel deploy mainly for the
+dashboard/browse UI. The web app reaches the API at the same-origin `/api`
+automatically, so **no `NEXT_PUBLIC_API_URL` is needed**. For the full variable
+classification, security controls, and rollback, follow the
+[Vercel delivery contract](infra/vercel/README.md). The API is unauthenticated and
+bucket-wide, so use a dedicated B2 bucket/prefix and key for any preview. Deploying
+is a human-approved action — nothing here performs one for you.
 
 ## Documentation Map
 
@@ -281,62 +246,71 @@ for you.
 |-----|---------|
 | [AGENTS.md](AGENTS.md) | Agent table of contents — start here |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | System layout, layering, data flows |
-| [docs/features/](docs/features/) | Feature docs (upload, browser, dashboard, metadata) |
-| [docs/design-system.md](docs/design-system.md) | Design tokens, primitives, AI elements, loader, error/empty states |
+| [docs/features/](docs/features/) | Feature docs (corpus ingest, yield validation, stream-back, explorer, upload, browser, dashboard) |
+| [docs/design-system.md](docs/design-system.md) | Design tokens, primitives, error/empty states |
 | [docs/app-workflows.md](docs/app-workflows.md) | User journeys |
 | [docs/dev-workflows.md](docs/dev-workflows.md) | Engineering workflows and testing |
 | [docs/SECURITY.md](docs/SECURITY.md) | Security principles |
 | [docs/RELIABILITY.md](docs/RELIABILITY.md) | Reliability expectations |
-| [docs/api/openapi.json](docs/api/openapi.json) | Checked contract for the template's local FastAPI API |
+| [docs/api/openapi.json](docs/api/openapi.json) | Checked contract for the local FastAPI API |
 | [infra/vercel/README.md](infra/vercel/README.md) | Vercel deployment contract |
 | [docs/exec-plans/](docs/exec-plans/) | Execution plans and tech debt tracker |
 
 ## FAQ
 
-**What is the Vibe Coding Starter Kit?**
-An open-source, full-stack template (Next.js 16 + FastAPI) with a pre-built dashboard UI, drag-and-drop file upload, and file browser, with [Backblaze B2](https://www.backblaze.com/cloud-storage) cloud storage already integrated. You clone it, connect it to your own B2 bucket, then rebrand and extend it for your app.
+**What does this sample do?**
+It bulk-downloads image-text datasets into Backblaze B2 as reproducible WebDataset
+tar shards using [`img2dataset`](https://github.com/rom1504/img2dataset). You define
+a **Corpus** (an ingest job), it fetches/resizes/packages images and streams shards
+straight to B2, then validates yield from each shard's `_stats.json` and streams a
+shard back through `webdataset` to prove training-time consumption.
 
-**Is it free?**
-Yes. The code is MIT-licensed (see [License](#license)), and Backblaze B2 offers a free account to get started.
+**Do I need a GPU or a second API key?**
+No. The workload is CPU + network only (download, PIL resize, tar packaging). There
+is no model and no external AI provider — Backblaze B2 credentials are the only
+secret. The built-in seed list downloads from `picsum.photos` (free, keyless).
+
+**Why WebDataset?**
+WebDataset `.tar` shards are the de-facto format for streaming large image-text
+corpora into PyTorch/JAX training loops directly from object storage — so B2 becomes
+the durable, S3-native home your training jobs read from without a local copy.
+
+**Does img2dataset's S3 client carry the custom B2 user agent?**
+No — and that is a deliberate, documented exception. See
+[The img2dataset user-agent exception](#the-img2dataset-user-agent-exception).
+Every S3 client the app itself constructs carries `b2ai-img2dataset-webdataset-object-storage`.
+
+**Can I use my own URL list instead of the seed list?**
+Yes. Upload a TSV/CSV/parquet with `url` and `caption` columns on the Upload page,
+then choose "Uploaded file" and select it when creating a corpus.
 
 **Can I use it in production?**
-It's a template/sample Backblaze maintains to help developers get started with B2. Production use is possible with caution and requires your own validation — you own the product-specific security, operations, capacity, compliance, and support decisions for anything you adapt, and the repository software carries no SLA. See [When not to use](#when-not-to-use) and [Maintenance and support](#maintenance-and-support).
-
-**Does it include authentication, user accounts, or multi-tenant isolation?**
-No. It does not provide managed hosting, user accounts, authentication, tenant isolation, billing, or on-call operations. Add whatever your application requires on top of the scaffold.
+It's a sample Backblaze maintains to help developers get started with B2. Production
+use is possible with caution and your own validation — you own the security,
+operations, capacity, and compliance decisions. See [When not to use](#when-not-to-use).
 
 **Do I have to use Backblaze B2?**
-It integrates Backblaze B2 through the S3-compatible API, and B2 is the storage the kit is built around. You supply your own B2 bucket and application key during setup.
-
-**Is it really built for AI coding agents?**
-Yes. [AGENTS.md](AGENTS.md) is the single source of truth for coding agents, architectural boundaries are enforced mechanically by structural tests and lints (not by convention), and the docs use progressive disclosure — so an agent can read the repo and start contributing immediately.
-
-**What's the tech stack?**
-Frontend: TypeScript, Next.js 16, React 19, Tailwind v4, shadcn/ui, TanStack Query. Backend: Python 3.11+, FastAPI, boto3, Pydantic v2. Storage: Backblaze B2 (S3-compatible). See [Tech Stack](#tech-stack).
-
-**How do I rebrand it for my own app?**
-Edit a single file — `apps/web/src/lib/app-config.ts` (`APP_NAME`, `APP_DESCRIPTION`) — and the page title, sidebar, and breadcrumb update everywhere. See [Building Your App](#building-your-app).
-
-**How do I deploy it?**
-It deploys to Vercel as a single project — the web app and FastAPI API build from the same repo and share one origin (web at `/`, API under `/api`), so there's no CORS or second URL to wire up. A Railway path is also documented. Deploying is always a human-approved action — see [Deploying to Vercel](#deploying-to-vercel).
+It integrates B2 through the S3-compatible API, and B2 is the storage the sample is
+built around. You supply your own B2 bucket and application key during setup.
 
 **Does it work on Windows?**
-Local scripts are supported on macOS, Linux, and WSL2. Native Windows is not supported yet — use WSL2 on Windows.
+Local scripts are supported on macOS, Linux, and WSL2. Native Windows is not
+supported yet — use WSL2 on Windows.
 
 **Where do I get help or report bugs?**
-Report repository defects and feature requests through [GitHub Issues](https://github.com/backblaze-b2-samples/vibe-coding-starter-kit/issues). For B2 account, billing, service, or API help, use [Backblaze Support](https://www.backblaze.com/help).
+Report repository defects and feature requests through [GitHub Issues](https://github.com/backblaze-b2-samples/img2dataset-webdataset-object-storage/issues). For B2 account, billing, service, or API help, use [Backblaze Support](https://www.backblaze.com/help?utm_source=github&utm_medium=referral&utm_campaign=ai_artifacts&utm_content=b2ai-img2dataset-webdataset-object-storage).
 
 ## Maintenance and support
 
-Backblaze maintains this open-source template/sample to help developers get
-started with B2. Production use is possible with caution and requires your own
-validation. Report repository defects and feature requests through
-[GitHub Issues](https://github.com/backblaze-b2-samples/vibe-coding-starter-kit/issues);
+Backblaze maintains this open-source sample to help developers get started with
+B2. Production use is possible with caution and requires your own validation.
+Report repository defects and feature requests through
+[GitHub Issues](https://github.com/backblaze-b2-samples/img2dataset-webdataset-object-storage/issues);
 for B2 account, billing, service, or API help, use
-[Backblaze Support](https://www.backblaze.com/help). This template/sample is
-not covered by the Backblaze service level agreement, and no SLA is provided
-for the repository software; any B2 service or support commitments are governed
-separately by the applicable Backblaze terms and support plan.
+[Backblaze Support](https://www.backblaze.com/help?utm_source=github&utm_medium=referral&utm_campaign=ai_artifacts&utm_content=b2ai-img2dataset-webdataset-object-storage). This sample is not covered by
+the Backblaze service level agreement, and no SLA is provided for the repository
+software; any B2 service or support commitments are governed separately by the
+applicable Backblaze terms and support plan.
 
 ## Contributing
 

@@ -25,7 +25,7 @@ import {
   uploadStatusLabel,
   type UploadItem,
 } from "@/lib/upload-status";
-import type { FileStatus } from "@vibe-coding-starter-kit/shared";
+import type { FileStatus } from "@img2dataset-webdataset-object-storage/shared";
 
 export type { UploadItem };
 

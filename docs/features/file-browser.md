@@ -2,7 +2,11 @@
 # Feature: File Browser
 
 ## Purpose
-List, preview, download, and delete files stored in Backblaze B2.
+List, preview, download, and delete files stored in Backblaze B2. This is the
+full-bucket File Explorer — it browses every object, including the ingest
+artifacts under `img2dataset/`. It is kept as-is and is distinct from the
+sample-specific [Corpora Explorer](corpora-explorer.md), which is scoped to the
+`img2dataset/` prefix.
 
 ## Used By
 - UI: `/files` page, file browser component

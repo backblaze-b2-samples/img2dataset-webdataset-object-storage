@@ -8,7 +8,14 @@ import {
 } from "@tanstack/react-query";
 import {
   ApiError,
+  createCorpus,
+  deleteCorpus,
   deleteFile,
+  getCorpora,
+  getCorpus,
+  getCorpusPreview,
+  getCorpusShards,
+  getCorpusStats,
   getDownloadUrl,
   getFileDetail,
   getFiles,
@@ -16,11 +23,19 @@ import {
   getHealth,
   getPreviewUrl,
   getUploadActivity,
+  reingestCorpus,
+  updateCorpus,
 } from "@/lib/api-client";
 import type {
+  Corpus,
+  CorpusCreate,
+  CorpusPreview,
+  CorpusStats,
+  CorpusUpdate,
   FileMetadata,
   FileMetadataDetail,
-} from "@vibe-coding-starter-kit/shared";
+  ShardStat,
+} from "@img2dataset-webdataset-object-storage/shared";
 
 // Single source of truth for query keys. Keep these tightly scoped so that
 // invalidating "files" doesn't blow away unrelated caches, and so an IDE
@@ -35,9 +50,19 @@ export const qk = {
   preview: (key: string) => [...qk.all, "preview", key] as const,
   detail: (key: string) => [...qk.all, "detail", key] as const,
   health: () => [...qk.all, "health"] as const,
+  corpora: () => [...qk.all, "corpora"] as const,
+  corpus: (id: string) => [...qk.all, "corpora", id] as const,
+  corpusStats: () => [...qk.all, "corpora", "stats"] as const,
+  corpusShards: (id: string) => [...qk.all, "corpora", id, "shards"] as const,
+  corpusPreview: (id: string) => [...qk.all, "corpora", id, "preview"] as const,
 };
 
 export type Health = Awaited<ReturnType<typeof getHealth>>;
+
+/** True while an ingest is still working — used to decide whether to poll. */
+function isCorpusActive(status: string | undefined): boolean {
+  return status === "running";
+}
 
 /**
  * Gate a query on something being open/visible. Deliberately the only option we
@@ -166,6 +191,101 @@ export function useDeleteFile() {
       // activity) against the server in the background.
       dropDeletedFileFromCache(qc, fileKey);
       qc.invalidateQueries({ queryKey: qk.all });
+    },
+  });
+}
+
+// --- Corpora (primary entity) ----------------------------------------------
+
+/**
+ * Corpus list. Polls every 3s while any corpus is still ingesting so a run's
+ * status flip and its yield metrics appear without a manual refresh; idle once
+ * everything is complete/failed.
+ */
+export function useCorpora({ enabled = true }: QueryGate = {}) {
+  return useQuery<Corpus[], ApiError>({
+    queryKey: qk.corpora(),
+    queryFn: getCorpora,
+    enabled,
+    refetchInterval: (query) =>
+      (query.state.data ?? []).some((c) => isCorpusActive(c.status)) ? 3000 : false,
+  });
+}
+
+/** One corpus. Polls every 2s while the ingest is active, then stops. */
+export function useCorpus(id: string | undefined, { enabled = true }: QueryGate = {}) {
+  return useQuery<Corpus, ApiError>({
+    queryKey: qk.corpus(id ?? ""),
+    queryFn: () => getCorpus(id as string),
+    enabled: enabled && !!id,
+    refetchInterval: (query) => (isCorpusActive(query.state.data?.status) ? 2000 : false),
+  });
+}
+
+export function useCorpusStats({ enabled = true }: QueryGate = {}) {
+  return useQuery<CorpusStats, ApiError>({
+    queryKey: qk.corpusStats(),
+    queryFn: getCorpusStats,
+    enabled,
+    refetchInterval: 5000,
+  });
+}
+
+export function useCorpusShards(id: string | undefined, { enabled = true }: QueryGate = {}) {
+  return useQuery<ShardStat[], ApiError>({
+    queryKey: qk.corpusShards(id ?? ""),
+    queryFn: () => getCorpusShards(id as string),
+    enabled: enabled && !!id,
+  });
+}
+
+export function useCorpusPreview(id: string | undefined, enabled: boolean) {
+  return useQuery<CorpusPreview, ApiError>({
+    queryKey: qk.corpusPreview(id ?? ""),
+    queryFn: () => getCorpusPreview(id as string),
+    enabled: enabled && !!id,
+    staleTime: 60_000,
+  });
+}
+
+export function useCreateCorpus() {
+  const qc = useQueryClient();
+  return useMutation<Corpus, ApiError, CorpusCreate>({
+    mutationFn: (body) => createCorpus(body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: qk.corpora() }),
+  });
+}
+
+export function useUpdateCorpus(id: string) {
+  const qc = useQueryClient();
+  return useMutation<Corpus, ApiError, CorpusUpdate>({
+    mutationFn: (body) => updateCorpus(id, body),
+    onSuccess: (corpus) => {
+      qc.setQueryData(qk.corpus(id), corpus);
+      qc.invalidateQueries({ queryKey: qk.corpora() });
+    },
+  });
+}
+
+export function useDeleteCorpus() {
+  const qc = useQueryClient();
+  return useMutation<{ deleted: boolean; id: string }, ApiError, string>({
+    mutationFn: (id) => deleteCorpus(id),
+    onSuccess: (_data, id) => {
+      qc.removeQueries({ queryKey: qk.corpus(id) });
+      // A delete removes B2 objects too — refresh corpora, stats and file lists.
+      qc.invalidateQueries({ queryKey: qk.all });
+    },
+  });
+}
+
+export function useReingestCorpus() {
+  const qc = useQueryClient();
+  return useMutation<Corpus, ApiError, string>({
+    mutationFn: (id) => reingestCorpus(id),
+    onSuccess: (corpus) => {
+      qc.setQueryData(qk.corpus(corpus.id), corpus);
+      qc.invalidateQueries({ queryKey: qk.corpora() });
     },
   });
 }

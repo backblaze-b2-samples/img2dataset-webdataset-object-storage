@@ -30,8 +30,11 @@ When this repo is used as the foundation for a new app, the following pieces are
 - **Upload.** `/upload` route, `apps/web/src/app/upload/`, and `apps/web/src/components/upload/`. The Upload sidebar entry stays.
 - The sidebar nav itself (Dashboard, Upload, Files, Settings, plus the Design System utility link).
 
+**This sample's primary domain**
+- **Corpora.** `/corpora` is the primary entity — an img2dataset ingest job ("Corpus") with a full create/read/edit/delete/re-run lifecycle. Backend lives in `app/{types,repo,service,runtime}/corpus*.py` + `repo/img2dataset_ingest.py` (img2dataset/s3fs/fsspec) + `repo/webdataset_preview.py` (webdataset). The Corpus system of record is a `manifest.json` in B2 under `img2dataset/<id>/` — no database. The Corpora explorer is scoped to that prefix and is distinct from the kept full-bucket File Explorer.
+
 **Adapt to the new use case**
-- **Dashboard.** `/` route and `apps/web/src/components/dashboard/` (stats cards, upload chart, recent uploads table) are illustrative defaults. Replace them with metrics, charts, and tables that reflect what the new app actually does (e.g. transcripts processed, embeddings indexed, classifications run). New aggregations must flow through the same `runtime -> service -> repo` layering and be exposed via TanStack Query hooks in `apps/web/src/lib/queries.ts` — no bare `useEffect + fetch`.
+- **Dashboard.** `/` route and `apps/web/src/components/dashboard/` (stats cards, corpora chart, recent corpora table) reflect corpus-ingest metrics. When adapting, replace them with metrics that fit the app. New aggregations must flow through the same `runtime -> service -> repo` layering and be exposed via TanStack Query hooks in `apps/web/src/lib/queries.ts` — no bare `useEffect + fetch`.
 - Update `docs/features/dashboard.md` in the same PR as any dashboard change (see §9).
 
 **Why this contract exists**

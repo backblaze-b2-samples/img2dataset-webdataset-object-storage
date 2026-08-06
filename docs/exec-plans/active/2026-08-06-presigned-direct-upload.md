@@ -1,6 +1,6 @@
 # Presigned Direct-to-B2 Upload
 
-Closes [#52](https://github.com/backblaze-b2-samples/vibe-coding-starter-kit/issues/52).
+Closes [#52](https://github.com/backblaze-b2-samples/img2dataset-webdataset-object-storage/issues/52).
 
 ## Goal
 

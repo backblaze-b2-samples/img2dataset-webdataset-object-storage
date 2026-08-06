@@ -12,6 +12,17 @@ boto3>=1.35.0
 Pillow>=11.0.0
 PyPDF2>=3.0.0
 
+# img2dataset -> WebDataset on B2 (deployment: local — CPU + network only, no
+# GPU, no model, no second API key). img2dataset streams tar shards straight to
+# B2 via s3fs/fsspec; webdataset is pinned torch-optional so `import webdataset`
+# and shard iteration work WITHOUT pulling torch (a multi-GB dep is never added
+# just for a thumbnail preview). pyarrow reads the metadata parquet.
+img2dataset>=1.45.0
+webdataset>=0.2.100,<0.3
+s3fs>=2024.6.0
+fsspec>=2024.6.0
+pyarrow>=16.0.0
+
 # Dev / quality
 ruff>=0.8.0
 pytest>=8.0.0

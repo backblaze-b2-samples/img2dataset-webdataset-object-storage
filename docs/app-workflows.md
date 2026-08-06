@@ -3,6 +3,34 @@
 
 User journeys inside the application.
 
+## Build a Corpus (create → ingest → validate → preview → re-run/delete)
+
+- User navigates to `/corpora` and clicks **New corpus**
+- In the dialog, they name the corpus and pick the ingest parameters with
+  selectors (never free text): output format, resize mode, image size, and
+  URL-list source. Safe defaults are surfaced as hints — the built-in 24-image
+  seed list, 256px, border, webdataset — with no autofill button
+- Pressing **Create & ingest** writes a `running` manifest to
+  `img2dataset/<corpus-id>/manifest.json` on B2 and launches `img2dataset` on a
+  background thread; the browser redirects to the corpus detail page and polls
+- **Ingest**: `img2dataset` downloads, resizes, and packages the images into
+  WebDataset `.tar` shards (+ metadata parquet + per-shard `_stats.json`) and
+  streams them straight to B2 via s3fs — no local staging. The status badge shows
+  "Ingesting" until the manifest flips to "Complete" (or "Failed" with the error)
+- **Validate**: the detail page reads every shard's `_stats.json` back from B2 and
+  shows download yield %, success/fail counts, shard count, and bytes on B2 — a
+  zero-yield run is reported honestly, not hidden
+- **Preview**: the app GETs the first `.tar` shard and iterates it with the real
+  `webdataset` package to decode the first few `(image, caption)` pairs, rendering
+  them as thumbnails — proof a training loop can stream shards directly from B2
+- **Edit**: the Edit dialog changes name/description only; ingest parameters are
+  create-time immutable and shown read-only
+- **Re-run ingest**: re-executes with the stored config, wiping and rebuilding the
+  corpus's shards (scoped to its own prefix)
+- **Delete**: an AlertDialog confirms, then a prefix-scoped batch delete removes
+  the manifest and every shard under `img2dataset/<corpus-id>/` — and nothing else
+- See: [Corpus Ingest](features/corpus-ingest.md), [Yield Validation](features/yield-validation.md), [Stream-Back Preview](features/stream-back-preview.md), [Corpora Explorer](features/corpora-explorer.md)
+
 ## Upload Files
 
 - User navigates to `/upload`
@@ -34,12 +62,12 @@ User journeys inside the application.
 ## View Dashboard
 
 - User navigates to `/` (home)
-- Three parallel API calls load: stats, recent files, upload activity — all served from one shared bucket listing that the API warms at startup
+- TanStack Query loads corpus-ingest stats and the corpus list; the corpus list polls while any corpus is still ingesting
 - While stats load, the page states it in words above the cards rather than showing silent skeletons
-- Stats cards show: total files, storage used, uploads today, total downloads
-- Upload chart shows last 7 days of upload activity as bar chart
-- Recent uploads table shows last 10 files with filename, size, type, date. Each filename links to that file's preview on `/files` — `/files` teaches "click a file to preview it", so the same gesture here has to answer rather than being inert text
-- Empty state: "No files uploaded yet" messages
+- Stats cards show: corpora built, images ingested, aggregate download yield %, and total corpus bytes on B2
+- The chart shows images ingested per corpus for the newest few corpora
+- The recent-corpora table lists corpora with a yield % and status badge; each name links to its detail page
+- Empty state: "No corpora yet" messages
 - See: [Dashboard](features/dashboard.md)
 
 ## Change Preferences
