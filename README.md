@@ -16,14 +16,17 @@ This runs on device: CPU + network only. No GPU, no model, no second API key —
 
 ## What it looks like
 
-Screenshots are added by a later step. The Dashboard shows corpus-ingest metrics
-(corpora built, images ingested, aggregate yield, bytes on B2); the Corpus detail
-page shows yield validation, the decoded stream-back preview grid, and the shard
-list.
+**Dashboard** — corpus-ingest metrics (corpora built, images ingested, aggregate download yield, bytes on B2), an images-per-corpus chart, and a recent-corpora table.
 
-![Dashboard — ingest metrics, images-ingested chart, recent corpora](docs/images/dashboard.png)
+![Dashboard with corpus-ingest metrics, an images-per-corpus chart, and recent corpora](docs/images/dashboard.png)
 
-![Corpus detail — yield validation, decoded sample grid, shard list](docs/images/corpus-detail.png)
+**Corpora** — every img2dataset ingest job as a card, each showing its output format, resize mode, image size, image and shard counts, download yield, and bytes on B2.
+
+![Corpora explorer with one card per img2dataset ingest job](docs/images/corpora.png)
+
+**Corpus detail** — the ingest configuration, yield validation read from each shard's `_stats.json`, a decoded stream-back preview grid, and the per-shard list on B2.
+
+![Corpus detail with yield validation, a decoded stream-back preview grid, and the shard list](docs/images/corpus-detail.png)
 
 ## Quick Start
 
