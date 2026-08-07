@@ -10,6 +10,7 @@ stream-back preview is NOT mocked: it decodes the real tar through the real
 import io
 import json
 import tarfile
+import threading
 import time
 
 import pytest
@@ -73,10 +74,18 @@ def _real_webdataset_tar(n: int) -> bytes:
 
 
 def _fake_ingest(store, *, shards=2, per_shard=4, successes_per_shard=3, real_tar=True):
-    """Build a run_ingest stub that writes fake shards into the mem store."""
+    """Build a run_ingest stub that writes fake shards into the mem store.
+
+    Mirrors the real adapter closely enough to catch layout bugs: shards go in
+    img2dataset's own ``shards/`` sub-folder, and the stub first WIPES that
+    folder exactly like ``incremental_mode="overwrite"`` does. The corpus
+    manifest must survive that wipe.
+    """
 
     def run_ingest(corpus_id, *, url_list_path, output_format, resize_mode, image_size):
-        prefix = corpus_store.corpus_prefix(corpus_id)
+        prefix = corpus_store.shards_prefix(corpus_id)
+        for key in [k for k in store if k.startswith(prefix)]:
+            del store[key]
         for s in range(shards):
             name = f"{s:05d}"
             stats = {
@@ -139,6 +148,36 @@ def test_list_and_get(mem_store, monkeypatch):
 def test_missing_corpus_raises(mem_store):
     with pytest.raises(CorpusNotFoundError):
         corpus_service.get_corpus("does-not-exist")
+
+
+def test_corpus_stays_readable_while_the_ingest_overwrites(mem_store, monkeypatch):
+    """The manifest must survive img2dataset wiping its output folder mid-run.
+
+    "Create & ingest" navigates straight to the detail page, which polls while
+    the ingest is still running. When the manifest lived inside the folder
+    img2dataset overwrites, that poll 404'd for the whole run and the finished
+    corpus was then treated as deleted and silently dropped.
+    """
+    started = threading.Event()
+    release = threading.Event()
+
+    def overwriting_ingest(corpus_id, **kwargs):
+        # Exactly what incremental_mode="overwrite" does first.
+        corpus_store.delete_under(corpus_store.shards_prefix(corpus_id))
+        started.set()
+        release.wait(5)
+        return _fake_ingest(mem_store)(corpus_id, **kwargs)
+
+    monkeypatch.setattr(img2dataset_ingest, "run_ingest", overwriting_ingest)
+    corpus = corpus_service.create_corpus(CorpusCreate(name="Mid-run"))
+
+    assert started.wait(5)
+    assert corpus_service.get_corpus(corpus.id).status == "running"
+
+    release.set()
+    done = _wait_for_status(corpus.id, "complete")
+    assert done.status == "complete"
+    assert done.metrics.shard_count == 2
 
 
 # --- edit -----------------------------------------------------------------
@@ -214,6 +253,93 @@ def test_uploaded_source_with_key_ingests(mem_store, monkeypatch):
     assert _wait_for_status(corpus.id, "complete").status == "complete"
 
 
+# --- live ingest progress -------------------------------------------------
+
+def test_progress_advances_while_the_ingest_runs(mem_store, monkeypatch):
+    """Progress must move mid-run, and only because objects landed on B2.
+
+    The stub writes img2dataset's real layout: three ``_tmp`` input shards up
+    front, then one ``_stats.json`` per finished shard, deleting that shard's
+    ``_tmp`` file — exactly what the progress reader counts.
+    """
+    release_shard = threading.Semaphore(0)
+
+    def staged_ingest(corpus_id, **kwargs):
+        prefix = corpus_store.shards_prefix(corpus_id)
+        for shard in range(3):  # planned up front, into _tmp
+            mem_store[f"{prefix}_tmp/{shard:05d}.feather"] = b"FEATHER"
+        for shard in range(3):
+            assert release_shard.acquire(timeout=5)
+            name = f"{shard:05d}"
+            stats = {"count": 4, "successes": 3, "failed_to_download": 1}
+            mem_store[f"{prefix}{name}_stats.json"] = json.dumps(stats).encode()
+            mem_store[f"{prefix}{name}.tar"] = b"TAR"
+            del mem_store[f"{prefix}_tmp/{name}.feather"]
+        return img2dataset_ingest.s3_output_folder(corpus_id)
+
+    monkeypatch.setattr(img2dataset_ingest, "run_ingest", staged_ingest)
+    corpus = corpus_service.create_corpus(CorpusCreate(name="Progressing"))
+
+    def progress_when(predicate):
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            current = corpus_service.get_progress(corpus.id)
+            if predicate(current):
+                return current
+            time.sleep(0.02)
+        return corpus_service.get_progress(corpus.id)
+
+    first = progress_when(lambda p: p.shards_total == 3)
+    assert first.status == "running"
+    assert first.shards_total == 3  # read from the pending _tmp shards
+    assert first.shards_completed == 0
+    assert first.percent == 0.0
+    assert first.images_written == 0
+
+    release_shard.release()
+    second = progress_when(lambda p: p.shards_completed == 1)
+    # The whole point of the finding: the numbers visibly move mid-run.
+    assert second.shards_completed == 1
+    assert second.images_written == 3
+    assert second.images_attempted == 4
+    assert second.percent and second.percent > (first.percent or 0)
+    assert second.shards_total == 3
+    assert second.elapsed_seconds >= 0
+
+    release_shard.release()
+    release_shard.release()
+    done = _wait_for_status(corpus.id, "complete")
+    assert done.status == "complete"
+
+    final = corpus_service.get_progress(corpus.id)
+    assert final.percent == 100.0
+    assert final.shards_completed == 3
+
+
+def test_progress_is_indeterminate_before_shards_are_planned(mem_store, monkeypatch):
+    """No shards planned yet -> no invented percentage."""
+    release = threading.Event()
+
+    def blocked_ingest(corpus_id, **kwargs):
+        release.wait(5)
+        return img2dataset_ingest.s3_output_folder(corpus_id)
+
+    monkeypatch.setattr(img2dataset_ingest, "run_ingest", blocked_ingest)
+    corpus = corpus_service.create_corpus(CorpusCreate(name="Planning"))
+    progress = corpus_service.get_progress(corpus.id)
+    assert progress.status == "running"
+    assert progress.percent is None
+    assert progress.shards_total is None
+    assert progress.stage
+    release.set()
+    _wait_for_status(corpus.id, "complete")
+
+
+def test_progress_of_a_missing_corpus_raises(mem_store):
+    with pytest.raises(CorpusNotFoundError):
+        corpus_service.get_progress("does-not-exist")
+
+
 # --- stream-back preview (real webdataset, not mocked) --------------------
 
 def test_preview_decodes_real_webdataset_shard(mem_store, monkeypatch):
@@ -244,6 +370,43 @@ def test_preview_note_when_no_tar(mem_store, monkeypatch):
     preview = corpus_service.preview_corpus(corpus.id)
     assert preview.samples == []
     assert preview.note
+
+
+def test_preview_of_a_zero_yield_shard_is_empty_not_an_error(mem_store, monkeypatch):
+    # A corpus can legitimately COMPLETE with zero successful downloads (a URL
+    # list whose URLs are all unfetchable); img2dataset still writes a valid
+    # but member-less .tar. That has to read back as an empty preview so the UI
+    # renders its "Nothing to stream back yet" empty state — not a raw 500.
+    monkeypatch.setattr(
+        img2dataset_ingest,
+        "run_ingest",
+        _fake_ingest(mem_store, shards=1, successes_per_shard=0),
+    )
+    corpus = corpus_service.create_corpus(
+        CorpusCreate(name="Zero yield", output_format="webdataset")
+    )
+    _wait_for_status(corpus.id, "complete")
+
+    preview = corpus_service.preview_corpus(corpus.id)
+    assert preview.shard_key and preview.shard_key.endswith(".tar")
+    assert preview.samples == []
+
+
+def test_preview_of_an_unreadable_shard_still_raises(mem_store, monkeypatch):
+    # The empty-shard tolerance must not swallow genuine failures: a shard that
+    # is not a readable tar is a real error, not an empty dataset.
+    monkeypatch.setattr(
+        img2dataset_ingest,
+        "run_ingest",
+        _fake_ingest(mem_store, shards=1, real_tar=False),
+    )
+    corpus = corpus_service.create_corpus(
+        CorpusCreate(name="Corrupt shard", output_format="webdataset")
+    )
+    _wait_for_status(corpus.id, "complete")
+
+    with pytest.raises(tarfile.ReadError):
+        corpus_service.preview_corpus(corpus.id)
 
 
 # --- dashboard stats ------------------------------------------------------

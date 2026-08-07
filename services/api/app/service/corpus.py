@@ -25,6 +25,7 @@ from app.types.corpus import (
     Corpus,
     CorpusCreate,
     CorpusPreview,
+    CorpusProgress,
     CorpusStats,
     CorpusUpdate,
     ShardStat,
@@ -192,12 +193,12 @@ def _execute(corpus_id: str) -> None:
         corpus = _load(corpus_id)
         if corpus is None:  # deleted between launch and here
             return
-        # Re-ingest overwrites: wipe the prior prefix (scoped to this corpus
-        # only) then restore the running manifest so shards rebuild cleanly. On
-        # a first run the prefix holds only the manifest, so this is a no-op
-        # beyond re-writing it.
-        corpus_store.delete_under(corpus_store.corpus_prefix(corpus_id))
-        _save(corpus)
+        # Re-ingest overwrites: wipe the prior shards (scoped to this corpus's
+        # own img2dataset output folder) so they rebuild cleanly. The manifest
+        # lives one level up, outside that folder, so it stays readable for the
+        # whole run — the detail page the UI navigates to right after "Create &
+        # ingest" polls it while the ingest is still going.
+        corpus_store.delete_under(corpus_store.shards_prefix(corpus_id))
         url_list_path, is_temp = _resolve_url_list(corpus)
         img2dataset_ingest.run_ingest(
             corpus_id,
@@ -254,6 +255,11 @@ def get_shards(corpus_id: str) -> list[ShardStat]:
     get_corpus(corpus_id)
     shards, _ = yield_reader.collect_yield(corpus_id)
     return shards
+
+
+def get_progress(corpus_id: str) -> CorpusProgress:
+    """Live ingest progress, read back from B2 (see yield_reader)."""
+    return yield_reader.collect_progress(get_corpus(corpus_id))
 
 
 def preview_corpus(corpus_id: str) -> CorpusPreview:

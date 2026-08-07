@@ -161,6 +161,23 @@ export interface CorpusPreview {
   note: string | null;
 }
 
+/**
+ * Live ingest progress for one corpus, derived server-side from the shards
+ * already written to B2 — never from a timer. `shards_total` and `percent` stay
+ * null until img2dataset has planned the run's shards.
+ */
+export interface CorpusProgress {
+  corpus_id: string;
+  status: CorpusStatus;
+  stage: string;
+  shards_completed: number;
+  shards_total: number | null;
+  images_written: number;
+  images_attempted: number;
+  percent: number | null;
+  elapsed_seconds: number;
+}
+
 export interface CorpusStats {
   total_corpora: number;
   running: number;

@@ -14,6 +14,7 @@ import {
   getCorpora,
   getCorpus,
   getCorpusPreview,
+  getCorpusProgress,
   getCorpusShards,
   getCorpusStats,
   getDownloadUrl,
@@ -30,6 +31,7 @@ import type {
   Corpus,
   CorpusCreate,
   CorpusPreview,
+  CorpusProgress,
   CorpusStats,
   CorpusUpdate,
   FileMetadata,
@@ -55,6 +57,7 @@ export const qk = {
   corpusStats: () => [...qk.all, "corpora", "stats"] as const,
   corpusShards: (id: string) => [...qk.all, "corpora", id, "shards"] as const,
   corpusPreview: (id: string) => [...qk.all, "corpora", id, "preview"] as const,
+  corpusProgress: (id: string) => [...qk.all, "corpora", id, "progress"] as const,
 };
 
 export type Health = Awaited<ReturnType<typeof getHealth>>;
@@ -236,6 +239,24 @@ export function useCorpusShards(id: string | undefined, { enabled = true }: Quer
     queryKey: qk.corpusShards(id ?? ""),
     queryFn: () => getCorpusShards(id as string),
     enabled: enabled && !!id,
+  });
+}
+
+/**
+ * Live ingest progress for one corpus. Polls every 2s while the run is active
+ * so the counters advance on screen; goes idle the moment it isn't.
+ *
+ * `staleTime: 0` on purpose — the numbers come from B2 and change under us, so
+ * a cached answer is never good enough while an ingest is in flight.
+ */
+export function useCorpusProgress(id: string | undefined, enabled: boolean) {
+  return useQuery<CorpusProgress, ApiError>({
+    queryKey: qk.corpusProgress(id ?? ""),
+    queryFn: () => getCorpusProgress(id as string),
+    enabled: enabled && !!id,
+    staleTime: 0,
+    refetchInterval: (query) =>
+      enabled && isCorpusActive(query.state.data?.status) ? 2000 : false,
   });
 }
 

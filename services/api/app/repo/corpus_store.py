@@ -17,6 +17,12 @@ from app.config import settings
 from app.repo.b2_client import get_s3_client, invalidate_listing
 
 MANIFEST_NAME = "manifest.json"
+# Sub-folder of the corpus prefix that img2dataset OWNS. It must not hold
+# anything else: img2dataset's ``incremental_mode="overwrite"`` starts a run by
+# recursively deleting its whole output folder, so the manifest (this app's
+# system of record) deliberately lives one level above it. Keeping the manifest
+# inside would let every re-run delete the corpus itself.
+SHARDS_DIR = "shards"
 # Batch ceiling for the S3 DeleteObjects API.
 _DELETE_BATCH = 1000
 
@@ -24,6 +30,11 @@ _DELETE_BATCH = 1000
 def corpus_prefix(corpus_id: str) -> str:
     """The single B2 prefix that holds everything for one corpus."""
     return f"{settings.corpus_prefix}{corpus_id}/"
+
+
+def shards_prefix(corpus_id: str) -> str:
+    """img2dataset's output folder: tar shards, parquet, and ``_stats.json``."""
+    return f"{corpus_prefix(corpus_id)}{SHARDS_DIR}/"
 
 
 def manifest_key(corpus_id: str) -> str:

@@ -91,7 +91,7 @@ Open `.env` in your editor and keep it visible. Then head to the [Backblaze B2 d
 pnpm dev
 ```
 
-That's it. Frontend at `localhost:3000`, API at `localhost:8000`. Open **Corpora**, click **New corpus**, keep the built-in seed list, and press **Create & ingest** — shards stream to `img2dataset/<corpus-id>/` on B2, yield is validated from the stats, and the detail page decodes a shard back. Interactive API docs (Swagger UI) are at `localhost:8000/docs`, with ReDoc at `/redoc`.
+That's it. Frontend at `localhost:3000`, API at `localhost:8000`. Open **Corpora**, click **New corpus**, keep the built-in seed list, and press **Create & ingest** — shards stream to `img2dataset/<corpus-id>/shards/` on B2, yield is validated from the stats, and the detail page decodes a shard back. Interactive API docs (Swagger UI) are at `localhost:8000/docs`, with ReDoc at `/redoc`.
 
 `pnpm dev` runs the preflight check first — it catches the common setup gotchas (wrong Node/Python version, missing venv, missing or placeholder `.env`, ports already taken) and tells you exactly how to fix each one. Run it standalone any time with `pnpm run doctor`.
 

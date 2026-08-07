@@ -62,6 +62,14 @@ def decode_samples(tar_bytes: bytes, limit: int) -> list[dict]:
     Uses the real ``webdataset`` iterable pipeline. Returns a list of dicts:
     ``{key, caption, thumbnail, width, height}``. Never raises on a single bad
     sample — it skips it — so a preview degrades gracefully.
+
+    An empty shard returns ``[]``. A corpus can legitimately complete with zero
+    successful downloads (e.g. a URL list whose URLs are all unfetchable), and
+    img2dataset still writes a valid, member-less ``.tar``. ``empty_check``
+    turns that into ``ValueError("No samples found in dataset")``, which
+    surfaced as a raw 500 in place of the UI's "Nothing to stream back yet"
+    empty state — so it is off. It only suppresses the "we saw zero samples"
+    assertion; an unreadable or corrupt tar still raises from the tar reader.
     """
     import webdataset as wds  # deferred: torch-optional, still no torch pulled
 
@@ -71,7 +79,9 @@ def decode_samples(tar_bytes: bytes, limit: int) -> list[dict]:
     try:
         with os.fdopen(fd, "wb") as handle:
             handle.write(tar_bytes)
-        dataset = wds.WebDataset(path, shardshuffle=False).decode("pil")
+        dataset = wds.WebDataset(
+            path, shardshuffle=False, empty_check=False
+        ).decode("pil")
         out: list[dict] = []
         for sample in dataset:
             image = next(

@@ -255,7 +255,7 @@ build-result.json.)
 | APP_DESCRIPTION | `"Bulk-download image-text datasets into Backblaze B2 as reproducible WebDataset shards with img2dataset."` |
 | API_TITLE `"Vibe Coding Starter Kit API"` / description (`main.py`) | **must derive from APP_NAME** (branding gate) → `"img2dataset → WebDataset on B2 API"` |
 | `user_agent_extra="b2ai-oss-start"` (`b2_client.py`) | `b2ai-img2dataset-webdataset-object-storage` |
-| `utm_content=b2ai-oss-start` (all Backblaze links: sidebar, README) | `b2ai-img2dataset-webdataset-object-storage` (ONE token, must match the UA — branding gate) |
+| `utm_content` of `b2ai-oss-start` (all Backblaze links: sidebar, README) | `b2ai-img2dataset-webdataset-object-storage` (ONE token, must match the UA — branding gate) |
 | README project-page slug `/projects/vibe-coding-starter-kit/` | `/projects/img2dataset-webdataset-object-storage/` |
 | railway/vercel service names + image tags `vibe-coding-starter-kit*` | `img2dataset-webdataset-object-storage*` |
 | **Env vars (standardize to parent CLAUDE.md #3 — every recent sample does this):** | |

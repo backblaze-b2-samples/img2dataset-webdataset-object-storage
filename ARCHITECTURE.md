@@ -61,15 +61,18 @@ services/api/
 
 The primary entity is a **Corpus** — an img2dataset ingest job. It has no
 database: its system of record is a `manifest.json` in B2 at
-`img2dataset/<corpus-id>/manifest.json`, alongside the WebDataset `.tar` shards,
-metadata parquet, and per-shard `_stats.json` the ingest writes. A restart
+`img2dataset/<corpus-id>/manifest.json`. The WebDataset `.tar` shards, metadata
+parquet, and per-shard `_stats.json` the ingest writes go one level down, in
+`img2dataset/<corpus-id>/shards/` — a folder img2dataset owns outright, because
+`incremental_mode="overwrite"` recursively deletes its output folder at the
+start of every run and would otherwise delete the manifest with it. A restart
 re-derives every corpus by listing the `img2dataset/` prefix.
 
 Modules (all within the standard layering):
 
 - `types/corpus.py` — `Corpus`, `CorpusCreate/Update`, `ShardStat`, `CorpusMetrics`, `CorpusPreview`, `CorpusStats`; finite options (`OutputFormat`, `ResizeMode`, `ImageSize`, `UrlListSource`) as `Literal`s validated at the boundary
 - `repo/corpus_store.py` — reads/writes the manifest and enumerates shards/stats; prefix-scoped `delete_under` refuses any non-`/`-terminated prefix
-- `repo/img2dataset_ingest.py` — the ONLY place img2dataset/s3fs/fsspec are imported; configures the B2 fsspec endpoint (from `B2_REGION`) and calls `img2dataset.download(output_folder="s3://<bucket>/img2dataset/<id>", …)`
+- `repo/img2dataset_ingest.py` — the ONLY place img2dataset/s3fs/fsspec are imported; configures the B2 fsspec endpoint (from `B2_REGION`) in fsspec's live config *and* the environment, suppresses img2dataset's CLI SIGINT handler (ingests run off the main thread), and calls `img2dataset.download(output_folder="s3://<bucket>/img2dataset/<id>/shards", …)`
 - `repo/webdataset_preview.py` — the ONLY place `webdataset` is imported; decodes a shard's first samples via `wds.WebDataset(...).decode("pil")`
 - `service/corpus.py` — lifecycle (create/read/edit/delete/re-run) on a background daemon thread per corpus
 - `service/yield_reader.py` — reads shard stats back from B2 and builds the stream-back preview (kept separate so both stay under 300 lines)
@@ -115,7 +118,7 @@ External provisioning and deployment remain explicit user-approved actions.
 
 - **Backblaze B2** — object storage (S3-compatible API)
   - All uploaded files stored in a single bucket
-  - Corpus system of record: `manifest.json` per corpus under `img2dataset/<id>/`, plus its WebDataset `.tar` shards, metadata parquet, and `_stats.json`
+  - Corpus system of record: `manifest.json` per corpus under `img2dataset/<id>/`, plus its WebDataset `.tar` shards, metadata parquet, and `_stats.json` in `img2dataset/<id>/shards/`
   - File listing and metadata via S3 `list_objects_v2` / `head_object`
   - No application database — B2 is the sole data store
 
@@ -133,7 +136,8 @@ See [docs/SECURITY.md](docs/SECURITY.md) for full security documentation.
 
 ## Data Flows
 
-- **Corpus ingest**: Browser -> `POST /corpora` (write `running` manifest) -> background thread: resolve URL list -> `img2dataset.download(... s3://<bucket>/img2dataset/<id>)` streams shards to B2 via s3fs -> read shard `_stats.json` back from B2 -> update manifest to `complete|failed`
+- **Corpus ingest**: Browser -> `POST /corpora` (write `running` manifest) -> background thread: clear `img2dataset/<id>/shards/` -> resolve URL list -> `img2dataset.download(... s3://<bucket>/img2dataset/<id>/shards)` streams shards to B2 via s3fs -> read shard `_stats.json` back from B2 -> update manifest to `complete|failed`
+- **Ingest progress**: Browser (polling, only while `running`) -> `GET /corpora/{id}/progress` -> service lists the corpus's shards prefix on B2 -> completed shards (`*_stats.json`) vs pending ones (`_tmp/*.feather`, written up front and deleted as each shard lands) -> stage + counters + percent. Read-only and B2-derived: `img2dataset.download()` is a single blocking call, so there is nothing in-process to ask, and nothing here is timer-driven
 - **Yield/preview**: Browser -> `GET /corpora/{id}` (manifest + metrics), `GET /corpora/{id}/shards` (re-derived stats), `GET /corpora/{id}/preview` (GET first `.tar` -> `wds.WebDataset` decode)
 - **Corpus delete**: Browser -> `DELETE /corpora/{id}` -> service confirms existence -> prefix-scoped batch delete of `img2dataset/<id>/` only
 - **Upload**: Browser -> `POST /upload/presign` (API validates + signs a PUT) -> Browser PUTs bytes **directly to B2** -> `POST /upload/verify` (API HEADs + Range-sniffs the stored object) -> response

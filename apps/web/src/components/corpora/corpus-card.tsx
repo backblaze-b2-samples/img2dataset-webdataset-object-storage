@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Database, Layers, Percent } from "lucide-react";
 
 import { Card, CardContent } from "@/components/ui/card";
+import { outputFormatLabel, resizeModeLabel } from "@/lib/corpus-labels";
 import type { Corpus } from "@img2dataset-webdataset-object-storage/shared";
 import { CorpusStatusBadge } from "./corpus-status-badge";
 
@@ -24,7 +25,8 @@ export function CorpusCard({ corpus }: { corpus: Corpus }) {
             </p>
           )}
           <p className="text-xs text-muted-foreground">
-            {corpus.output_format} · {corpus.image_size}px · {corpus.resize_mode}
+            {outputFormatLabel(corpus.output_format, "short")} ·{" "}
+            {corpus.image_size}px · {resizeModeLabel(corpus.resize_mode, "short")}
           </p>
           {corpus.status === "complete" && (
             <div className="grid grid-cols-3 gap-2 pt-1">

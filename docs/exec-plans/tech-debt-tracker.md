@@ -75,3 +75,10 @@ Low-severity polish, left for a follow-up; none blocks the core flow.
 | Custom `FileNotFoundError` shadowed the built-in | Renamed to `FileNotFoundServiceError` |
 | Dropzone accepted any file type client-side | `accept` allow-list mirroring backend `ALLOWED_TYPES` (tested for drift) |
 | No test harness for feature specs | pytest suite across upload, files, activity, errors, validation, rate limit, pagination |
+
+## 2026-08-07 — verify
+
+Nitpicks only; feature verified PASS (all three UX lenses, default + non-default ingest runs). None loop; logged here for backlog.
+
+- New corpus dialog — the built-in-seed-list quick path is fully defaulted (WebDataset / Border / 256px), but the user must still invent and type a corpus Name (min 2 chars); no auto-suggested default name → "just run the sample" is not one-click (`.local/verify/Ar/03-create-dialog-seed.png`).
+- README "Supported local environments" — states a live ingest "downloads from `picsum.photos`", but the built-in seed list is 24 NASA images from `images-assets.nasa.gov`; stale doc line (no shot; `README.md` prose).

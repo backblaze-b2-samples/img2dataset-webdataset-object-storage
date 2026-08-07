@@ -1,7 +1,7 @@
-import Link from "next/link";
 import { Plus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { CorpusFormDialog } from "@/components/corpora/corpus-form-dialog";
 import { StatsCards } from "@/components/dashboard/stats-cards";
 import { RecentCorporaTable } from "@/components/dashboard/recent-corpora-table";
 import { CorporaChart } from "@/components/dashboard/corpora-chart";
@@ -17,12 +17,18 @@ export default function DashboardPage() {
             images packaged into WebDataset shards, download yield, and bytes on B2.
           </p>
         </div>
-        <Button asChild size="sm" className="h-8">
-          <Link href="/corpora">
-            <Plus className="h-3.5 w-3.5" />
-            New corpus
-          </Link>
-        </Button>
+        {/* Same dialog the /corpora page opens — the dashboard's primary CTA
+            goes straight to the create form (and, on submit, to the new
+            corpus's detail page) instead of hopping through the list page. */}
+        <CorpusFormDialog
+          mode="create"
+          trigger={
+            <Button size="sm" className="h-8 shrink-0">
+              <Plus aria-hidden="true" className="h-3.5 w-3.5" />
+              New corpus
+            </Button>
+          }
+        />
       </div>
       <StatsCards />
       <div className="grid gap-6 lg:grid-cols-2">

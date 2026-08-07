@@ -11,7 +11,9 @@ import { ErrorState } from "@/components/ui/error-state";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ConfirmDialog } from "@/components/common/confirm-dialog";
 import { useCorpus, useDeleteCorpus, useReingestCorpus } from "@/lib/queries";
+import { outputFormatLabel, resizeModeLabel } from "@/lib/corpus-labels";
 import { CorpusFormDialog } from "./corpus-form-dialog";
+import { CorpusIngestProgress } from "./corpus-ingest-progress";
 import { CorpusStatusBadge } from "./corpus-status-badge";
 import { ShardList } from "./shard-list";
 import { SamplePreviewGrid } from "./sample-preview-grid";
@@ -56,7 +58,8 @@ export function CorpusDetail({ id }: { id: string }) {
             <CorpusStatusBadge status={corpus.status} />
           </div>
           <p className="mt-1.5 text-sm text-muted-foreground">
-            {corpus.output_format} · {corpus.image_size}px · updated{" "}
+            {outputFormatLabel(corpus.output_format, "short")} ·{" "}
+            {corpus.image_size}px · updated{" "}
             {new Date(corpus.updated_at).toLocaleString()}
           </p>
           {corpus.description && (
@@ -98,6 +101,8 @@ export function CorpusDetail({ id }: { id: string }) {
         </div>
       </div>
 
+      {corpus.status === "running" && <CorpusIngestProgress corpusId={corpus.id} />}
+
       {corpus.status === "failed" && corpus.error && (
         <Alert variant="destructive">
           <AlertTitle>Ingest failed</AlertTitle>
@@ -118,8 +123,14 @@ export function CorpusDetail({ id }: { id: string }) {
                 : (corpus.bucket_key ?? "Uploaded file")
             }
           />
-          <ConfigRow label="Output format" value={corpus.output_format} />
-          <ConfigRow label="Resize mode" value={corpus.resize_mode} />
+          <ConfigRow
+            label="Output format"
+            value={outputFormatLabel(corpus.output_format)}
+          />
+          <ConfigRow
+            label="Resize mode"
+            value={resizeModeLabel(corpus.resize_mode)}
+          />
           <ConfigRow label="Image size" value={`${corpus.image_size}px`} />
           <ConfigRow label="B2 prefix" value={corpus.prefix} mono />
         </CardContent>

@@ -25,7 +25,7 @@ Prove how many URLs actually became training images by reading each shard's `_st
 - `ShardStat[]`: per-shard success/attempted, failed downloads, tar key, size
 
 ## Flow
-- After ingest, `collect_yield` lists the corpus prefix, reads each `_stats.json`, and matches each shard to its `.tar` (or `.parquet`) for size
+- After ingest, `collect_yield` lists the corpus prefix, reads each `_stats.json`, and matches each shard to its `.tar` (or `.parquet`) for size — the artifact keys are derived from the stats key itself, so the reader does not care where under the prefix img2dataset wrote them
 - image_count = Σ count, successes = Σ successes, yield_pct = successes / image_count × 100
 - total_bytes = sum of every object under the prefix except the manifest — the true footprint on B2
 - Metrics are stamped onto the manifest at completion and re-derivable on demand via `/shards`

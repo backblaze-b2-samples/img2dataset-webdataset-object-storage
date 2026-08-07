@@ -13,6 +13,7 @@ from app.service.corpus import (
     delete_corpus,
     get_corpus,
     get_corpus_stats,
+    get_progress,
     get_shards,
     list_corpora,
     preview_corpus,
@@ -23,6 +24,7 @@ from app.types import (
     Corpus,
     CorpusCreate,
     CorpusPreview,
+    CorpusProgress,
     CorpusStats,
     CorpusUpdate,
     ShardStat,
@@ -97,6 +99,15 @@ def reingest_corpus_endpoint(corpus_id: str):
 def corpus_shards_endpoint(corpus_id: str):
     try:
         return get_shards(corpus_id)
+    except CorpusNotFoundError as e:
+        raise HTTPException(status_code=404, detail=e.detail) from None
+
+
+@router.get("/corpora/{corpus_id}/progress", response_model=CorpusProgress)
+def corpus_progress_endpoint(corpus_id: str):
+    """Live ingest progress — polled by the detail page while status=running."""
+    try:
+        return get_progress(corpus_id)
     except CorpusNotFoundError as e:
         raise HTTPException(status_code=404, detail=e.detail) from None
 

@@ -37,22 +37,14 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { useCreateCorpus, useFiles, useUpdateCorpus } from "@/lib/queries";
+import {
+  OUTPUT_FORMAT_LABELS,
+  RESIZE_MODE_LABELS,
+  outputFormatLabel,
+  resizeModeLabel,
+} from "@/lib/corpus-labels";
+import { UPLOAD_PREFIX, isUrlListFile } from "@/lib/url-list-files";
 import type { Corpus } from "@img2dataset-webdataset-object-storage/shared";
-
-const OUTPUT_LABELS: Record<string, string> = {
-  webdataset: "WebDataset (.tar shards)",
-  parquet: "Parquet (images embedded)",
-  files: "Files (one object per image)",
-};
-const RESIZE_LABELS: Record<string, string> = {
-  border: "Border (pad to square)",
-  keep_ratio: "Keep ratio",
-  center_crop: "Center crop",
-  no: "No resize",
-};
-
-// Extensions the img2dataset URL-list parser accepts for an uploaded list.
-const URL_LIST_EXTS = [".tsv", ".csv", ".parquet"];
 
 const schema = z
   .object({
@@ -97,16 +89,19 @@ export function CorpusFormDialog({
   const router = useRouter();
   const createCorpus = useCreateCorpus();
   const updateCorpus = useUpdateCorpus(corpus?.id ?? "");
-  const { data: files = [] } = useFiles("", 1000, { enabled: open && !isEdit });
+  // Listed straight from the upload prefix, so the app's own ingest output
+  // (img2dataset/<id>/shards/*.parquet) never reaches the picker.
+  const { data: files = [] } = useFiles(UPLOAD_PREFIX, 1000, {
+    enabled: open && !isEdit,
+  });
 
   const form = useForm<CorpusFormValues>({
     resolver: zodResolver(schema),
     defaultValues: toDefaults(corpus),
   });
   const source = useWatch({ control: form.control, name: "url_list_source" });
-  const urlListFiles = files.filter((f) =>
-    URL_LIST_EXTS.some((ext) => f.key.toLowerCase().endsWith(ext)),
-  );
+  const urlListFiles = files.filter((f) => isUrlListFile(f.key));
+  const hasUrlListFiles = urlListFiles.length > 0;
 
   const onSubmit = async (values: CorpusFormValues) => {
     try {
@@ -229,8 +224,14 @@ export function CorpusFormDialog({
                         <FormLabel>Uploaded URL-list file</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value}>
                           <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select a .tsv / .csv / .parquet file" />
+                            <SelectTrigger disabled={!hasUrlListFiles}>
+                              <SelectValue
+                                placeholder={
+                                  hasUrlListFiles
+                                    ? "Select a .tsv / .csv / .parquet file"
+                                    : "No uploaded URL lists yet"
+                                }
+                              />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
@@ -242,8 +243,9 @@ export function CorpusFormDialog({
                           </SelectContent>
                         </Select>
                         <FormDescription>
-                          Upload a TSV/CSV/parquet with <code>url</code> and{" "}
-                          <code>caption</code> columns on the Upload page first.
+                          {hasUrlListFiles
+                            ? "Your uploads only — the app's own ingest output is not listed."
+                            : "Upload a TSV/CSV/parquet with url and caption columns on the Upload page first."}
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
@@ -264,11 +266,13 @@ export function CorpusFormDialog({
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {Object.entries(OUTPUT_LABELS).map(([value, label]) => (
-                            <SelectItem key={value} value={value}>
-                              {label}
-                            </SelectItem>
-                          ))}
+                          {Object.entries(OUTPUT_FORMAT_LABELS).map(
+                            ([value, { label }]) => (
+                              <SelectItem key={value} value={value}>
+                                {label}
+                              </SelectItem>
+                            ),
+                          )}
                         </SelectContent>
                       </Select>
                       <FormDescription>
@@ -293,11 +297,13 @@ export function CorpusFormDialog({
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {Object.entries(RESIZE_LABELS).map(([value, label]) => (
-                            <SelectItem key={value} value={value}>
-                              {label}
-                            </SelectItem>
-                          ))}
+                          {Object.entries(RESIZE_MODE_LABELS).map(
+                            ([value, { label }]) => (
+                              <SelectItem key={value} value={value}>
+                                {label}
+                              </SelectItem>
+                            ),
+                          )}
                         </SelectContent>
                       </Select>
                       <FormDescription>Default: border (pad to square).</FormDescription>
@@ -368,8 +374,8 @@ function ReadOnlyParams({ corpus }: { corpus: Corpus }) {
         ? "Built-in seed list"
         : (corpus.bucket_key ?? "Uploaded file"),
     ],
-    ["Output format", corpus.output_format],
-    ["Resize mode", corpus.resize_mode],
+    ["Output format", outputFormatLabel(corpus.output_format)],
+    ["Resize mode", resizeModeLabel(corpus.resize_mode)],
     ["Image size", `${corpus.image_size}px`],
   ];
   return (
@@ -381,7 +387,7 @@ function ReadOnlyParams({ corpus }: { corpus: Corpus }) {
         {rows.map(([label, value]) => (
           <div key={label} className="flex items-center justify-between gap-3">
             <dt className="text-sm text-muted-foreground">{label}</dt>
-            <dd className="truncate font-mono text-xs">{value}</dd>
+            <dd className="truncate text-xs font-medium">{value}</dd>
           </div>
         ))}
       </dl>

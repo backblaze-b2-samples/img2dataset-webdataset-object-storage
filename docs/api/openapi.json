@@ -291,6 +291,77 @@
         "title": "CorpusPreview",
         "type": "object"
       },
+      "CorpusProgress": {
+        "description": "Live progress of one ingest, derived from what is already on B2.\n\nA bulk ingest is one long blocking ``img2dataset.download()`` call, so the\nonly honest source of \"how far along am I\" is the output prefix itself:\nimg2dataset writes each shard's ``_stats.json`` as that shard finishes and\ndeletes the matching ``_tmp`` input shard, so completed + pending is the\nreal denominator. Nothing here is timer-driven \u2014 a stalled run stops\nadvancing instead of animating on.",
+        "properties": {
+          "corpus_id": {
+            "title": "Corpus Id",
+            "type": "string"
+          },
+          "elapsed_seconds": {
+            "default": 0.0,
+            "title": "Elapsed Seconds",
+            "type": "number"
+          },
+          "images_attempted": {
+            "default": 0,
+            "title": "Images Attempted",
+            "type": "integer"
+          },
+          "images_written": {
+            "default": 0,
+            "title": "Images Written",
+            "type": "integer"
+          },
+          "percent": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Percent"
+          },
+          "shards_completed": {
+            "default": 0,
+            "title": "Shards Completed",
+            "type": "integer"
+          },
+          "shards_total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shards Total"
+          },
+          "stage": {
+            "title": "Stage",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "running",
+              "complete",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "corpus_id",
+          "status",
+          "stage"
+        ],
+        "title": "CorpusProgress",
+        "type": "object"
+      },
       "CorpusStats": {
         "description": "Aggregate corpus-ingest metrics for the dashboard.",
         "properties": {
@@ -1199,6 +1270,49 @@
           }
         },
         "summary": "Corpus Preview Endpoint",
+        "tags": [
+          "corpora"
+        ]
+      }
+    },
+    "/corpora/{corpus_id}/progress": {
+      "get": {
+        "description": "Live ingest progress \u2014 polled by the detail page while status=running.",
+        "operationId": "corpus_progress_endpoint_corpora__corpus_id__progress_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "corpus_id",
+            "required": true,
+            "schema": {
+              "title": "Corpus Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CorpusProgress"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Corpus Progress Endpoint",
         "tags": [
           "corpora"
         ]

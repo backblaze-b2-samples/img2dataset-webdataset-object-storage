@@ -17,6 +17,12 @@ User journeys inside the application.
   WebDataset `.tar` shards (+ metadata parquet + per-shard `_stats.json`) and
   streams them straight to B2 via s3fs — no local staging. The status badge shows
   "Ingesting" until the manifest flips to "Complete" (or "Failed" with the error)
+- **Watch it work**: because a bulk ingest scales with the URL list, the detail
+  page shows a live "Ingest in progress" card rather than a bare spinner — the
+  current stage, shards written of the shards planned, images ingested so far,
+  elapsed time, and a percent bar. Every number is polled back from what has
+  actually landed on B2 (the bar is indeterminate until img2dataset has planned
+  the shards), so a stalled run visibly stops advancing instead of animating on
 - **Validate**: the detail page reads every shard's `_stats.json` back from B2 and
   shows download yield %, success/fail counts, shard count, and bytes on B2 — a
   zero-yield run is reported honestly, not hidden
@@ -26,7 +32,8 @@ User journeys inside the application.
 - **Edit**: the Edit dialog changes name/description only; ingest parameters are
   create-time immutable and shown read-only
 - **Re-run ingest**: re-executes with the stored config, wiping and rebuilding the
-  corpus's shards (scoped to its own prefix)
+  corpus's shards (scoped to its own `img2dataset/<corpus-id>/shards/` folder, so
+  the manifest the page is polling is never removed)
 - **Delete**: an AlertDialog confirms, then a prefix-scoped batch delete removes
   the manifest and every shard under `img2dataset/<corpus-id>/` — and nothing else
 - See: [Corpus Ingest](features/corpus-ingest.md), [Yield Validation](features/yield-validation.md), [Stream-Back Preview](features/stream-back-preview.md), [Corpora Explorer](features/corpora-explorer.md)

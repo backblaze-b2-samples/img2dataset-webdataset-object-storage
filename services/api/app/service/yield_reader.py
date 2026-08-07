@@ -10,18 +10,28 @@ says so, rather than showing a false green.
 import json
 import logging
 import os
+from datetime import UTC, datetime
 
 from app.config import settings
 from app.repo import corpus_store, webdataset_preview
 from app.types.corpus import (
+    Corpus,
     CorpusMetrics,
     CorpusPreview,
+    CorpusProgress,
     PreviewSample,
     ShardStat,
 )
 from app.types.formatting import humanize_bytes
 
 logger = logging.getLogger(__name__)
+
+# Plain-English phases for the live progress panel.
+STAGE_PREPARING = "Preparing the URL list and planning shards"
+STAGE_DOWNLOADING = "Downloading images and writing shards to B2"
+STAGE_FINALIZING = "Reading the yield back from B2"
+STAGE_COMPLETE = "Ingest complete"
+STAGE_FAILED = "Ingest failed"
 
 
 def collect_yield(corpus_id: str) -> tuple[list[ShardStat], CorpusMetrics]:
@@ -40,9 +50,13 @@ def collect_yield(corpus_id: str) -> tuple[list[ShardStat], CorpusMetrics]:
             stat = json.loads(raw)
         except ValueError:
             continue
-        name = os.path.basename(key)[: -len("_stats.json")]
-        tar_key = f"{prefix}{name}.tar"
-        parquet_key = f"{prefix}{name}.parquet"
+        # Derive the shard's artifacts from the stats key itself (same folder,
+        # same basename) rather than assuming a layout, so this keeps working
+        # wherever img2dataset's output folder sits under the corpus prefix.
+        base = key[: -len("_stats.json")]
+        name = os.path.basename(base)
+        tar_key = f"{base}.tar"
+        parquet_key = f"{base}.parquet"
         artifact_key = (
             tar_key
             if tar_key in sizes
@@ -75,6 +89,69 @@ def collect_yield(corpus_id: str) -> tuple[list[ShardStat], CorpusMetrics]:
         total_bytes_human=humanize_bytes(total_bytes),
     )
     return shards, metrics
+
+
+def pending_shard_count(corpus_id: str) -> int:
+    """Shards img2dataset has planned but not finished yet.
+
+    It writes one ``.feather`` input shard per output shard into its ``_tmp``
+    folder up front, then deletes each one as that shard's images land — so what
+    is still there is exactly the work outstanding, read straight from B2.
+    """
+    tmp_prefix = f"{corpus_store.shards_prefix(corpus_id)}_tmp/"
+    return sum(
+        1 for obj in corpus_store.list_under(tmp_prefix) if obj["Key"].endswith(".feather")
+    )
+
+
+def collect_progress(corpus: Corpus) -> CorpusProgress:
+    """How far along this corpus's ingest is, measured from objects on B2.
+
+    ``img2dataset.download()`` is a single blocking call, so progress is derived
+    by re-reading the output prefix while it runs: completed shards (their
+    ``_stats.json`` exists) against the shards still pending in ``_tmp``. No
+    timers, no interpolation — if the run stalls, the numbers stop moving.
+    """
+    if corpus.status != "running":
+        done = corpus.status == "complete"
+        metrics = corpus.metrics
+        return CorpusProgress(
+            corpus_id=corpus.id,
+            status=corpus.status,
+            stage=STAGE_COMPLETE if done else STAGE_FAILED,
+            shards_completed=metrics.shard_count,
+            shards_total=metrics.shard_count or None,
+            images_written=metrics.successes,
+            images_attempted=metrics.image_count,
+            percent=100.0 if done else None,
+            elapsed_seconds=metrics.duration_seconds,
+        )
+
+    _, metrics = collect_yield(corpus.id)
+    pending = pending_shard_count(corpus.id)
+    total = metrics.shard_count + pending
+    if total == 0:
+        stage = STAGE_PREPARING
+    elif pending:
+        stage = STAGE_DOWNLOADING
+    else:
+        stage = STAGE_FINALIZING
+    # The manifest's updated_at is stamped when the run starts (create and
+    # re-ingest both write it), so it is the run's real start time.
+    started_at = corpus.updated_at
+    if started_at.tzinfo is None:  # defensive: a manifest written without a tz
+        started_at = started_at.replace(tzinfo=UTC)
+    return CorpusProgress(
+        corpus_id=corpus.id,
+        status=corpus.status,
+        stage=stage,
+        shards_completed=metrics.shard_count,
+        shards_total=total or None,
+        images_written=metrics.successes,
+        images_attempted=metrics.image_count,
+        percent=round(metrics.shard_count / total * 100, 1) if total else None,
+        elapsed_seconds=round((datetime.now(UTC) - started_at).total_seconds(), 1),
+    )
 
 
 def build_preview(corpus_id: str) -> CorpusPreview:

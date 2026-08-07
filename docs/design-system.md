@@ -17,11 +17,11 @@ For a live reference, open `/design` in the running app.
 | `--border` | `#e3e8ee` | `#373e47` | Divider lines |
 | `--primary` | `#0969da` | `#4493f8` | CTAs, links, focus ring |
 | `--accent-subtle` | `#ddf4ff` | rgba blue | Active states |
-| `--success` | `#1a7f37` | `#3fb950` | Completion dots, positive deltas |
+| `--success` | `#1a7f37` | `#3fb950` | Success status (badge text + `--success-subtle` fill), completion dots, positive deltas |
 | `--attention` | `#8a5d00` | `#d29922` | Warnings, folders |
 | `--destructive` | `#cf222e` | `#f85149` | Danger surfaces (bg + accent text) |
 | `--destructive-foreground` | `#ffffff` | `#ffffff` | Text on filled `--destructive` |
-| `--brand-b2` | `#e42c39` | `#f8535e` | Backblaze brand mark (single source) |
+| `--brand-b2` | `#e42c39` | `#f8535e` | Backblaze brand mark (single source) — never a success/status colour: it sits next to `--destructive`, so a red "Complete" pill is indistinguishable from a red "Failed" one |
 | `--nav` | `#0d1117` | `#010409` | Top-bar chrome (always dark) |
 
 Access via Tailwind utility (`bg-primary`, `text-muted-foreground`) when a

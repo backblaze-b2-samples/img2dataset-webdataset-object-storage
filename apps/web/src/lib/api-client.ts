@@ -2,6 +2,7 @@ import type {
   Corpus,
   CorpusCreate,
   CorpusPreview,
+  CorpusProgress,
   CorpusStats,
   CorpusUpdate,
   DailyUploadCount,
@@ -57,6 +58,7 @@ export const API_CLIENT_ROUTES = {
   reingestCorpus: { method: "post", path: "/corpora/{corpus_id}/reingest" },
   corpusShards: { method: "get", path: "/corpora/{corpus_id}/shards" },
   corpusPreview: { method: "get", path: "/corpora/{corpus_id}/preview" },
+  corpusProgress: { method: "get", path: "/corpora/{corpus_id}/progress" },
 } as const satisfies Record<string, ApiClientRoute>;
 
 /** Typed API error with HTTP status code for caller-side branching. */
@@ -400,5 +402,11 @@ export async function getCorpusShards(id: string) {
 export async function getCorpusPreview(id: string) {
   return apiFetch<CorpusPreview>(
     corpusPath(API_CLIENT_ROUTES.corpusPreview.path, id)
+  );
+}
+
+export async function getCorpusProgress(id: string) {
+  return apiFetch<CorpusProgress>(
+    corpusPath(API_CLIENT_ROUTES.corpusProgress.path, id)
   );
 }

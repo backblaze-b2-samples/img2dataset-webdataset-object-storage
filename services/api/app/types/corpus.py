@@ -60,6 +60,28 @@ class CorpusMetrics(BaseModel):
     duration_seconds: float = 0.0
 
 
+class CorpusProgress(BaseModel):
+    """Live progress of one ingest, derived from what is already on B2.
+
+    A bulk ingest is one long blocking ``img2dataset.download()`` call, so the
+    only honest source of "how far along am I" is the output prefix itself:
+    img2dataset writes each shard's ``_stats.json`` as that shard finishes and
+    deletes the matching ``_tmp`` input shard, so completed + pending is the
+    real denominator. Nothing here is timer-driven — a stalled run stops
+    advancing instead of animating on.
+    """
+
+    corpus_id: str
+    status: CorpusStatus
+    stage: str  # plain-English phase, e.g. "Downloading and writing shards…"
+    shards_completed: int = 0
+    shards_total: int | None = None  # None until img2dataset has planned them
+    images_written: int = 0  # successes counted so far
+    images_attempted: int = 0
+    percent: float | None = None  # None while the total is still unknown
+    elapsed_seconds: float = 0.0
+
+
 class CorpusConfig(BaseModel):
     """Tunable ingest inputs shared by create and the persisted manifest.
 
