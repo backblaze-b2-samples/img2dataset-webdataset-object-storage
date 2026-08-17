@@ -3,8 +3,6 @@
 
 Bulk-download image-text datasets straight into **[Backblaze B2](https://www.backblaze.com/sign-up/ai-cloud-storage?utm_source=github&utm_medium=referral&utm_campaign=ai_artifacts&utm_content=b2ai-img2dataset-webdataset-object-storage)** as reproducible, ready-to-train **WebDataset** tar shards — using the trending OSS tool [`img2dataset`](https://github.com/rom1504/img2dataset), with B2 as the S3-compatible output target and no local staging disk. Point a corpus at a URL-caption list (or the built-in sample list); `img2dataset` fetches, resizes, and packages the images into `.tar` shards + metadata parquet + per-shard `_stats.json`, streaming them directly to B2. The app then validates yield from those stats and proves training-time consumption by streaming a shard back through WebDataset's `IterableDataset` and decoding a few `(image, caption)` pairs.
 
-Explore the official [Backblaze B2 AI integrations and sample applications](https://www.backblaze.com/cloud-storage/b2-ai-integrations?utm_source=github&utm_medium=referral&utm_campaign=ai_artifacts&utm_content=b2ai-img2dataset-webdataset-object-storage) directory and the checked-in [local OpenAPI contract](docs/api/openapi.json).
-
 **What you get out of the box:**
 - A **Corpus** primary entity (an img2dataset ingest job) with full create / read / edit / delete / re-run lifecycle
 - Streaming ingest that writes WebDataset `.tar` shards straight to B2 via `img2dataset` — no local staging
