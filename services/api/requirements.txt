@@ -19,7 +19,7 @@ PyPDF2>=3.0.0
 # just for a thumbnail preview). pyarrow reads the metadata parquet.
 img2dataset>=1.45.0
 webdataset>=0.2.100,<0.3
-s3fs>=2024.6.0
+s3fs>=2026.7.0
 fsspec>=2024.6.0
 pyarrow>=16.0.0
 
